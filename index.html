@@ -28,7 +28,6 @@
   .screen.pushed{
     transform:translateX(100%);visibility:visible;z-index:100;
     transition:transform .35s cubic-bezier(.25,.1,.25,1);
-    box-shadow:-8px 0 24px rgba(0,0,0,.12);
   }
   .screen.pushed.in{transform:translateX(0);}
   @media (prefers-reduced-motion:reduce){
@@ -156,9 +155,9 @@
   .fare-row.cc-row{background:rgba(0,122,255,.06);}
   .fare-row.cc-row .fr-name{color:var(--blue);font-weight:600;}
   .fare-row.cc-row .fr-amount{color:var(--blue);}
-  .pt-line{display:flex;align-items:center;gap:6px;margin-top:6px;font-size:14px;color:var(--green);font-weight:600;}
+  .pt-line{display:flex;align-items:center;justify-content:flex-end;gap:6px;margin-top:6px;font-size:14px;color:var(--green);font-weight:600;}
   .pt-sub{font-size:12px;color:var(--label2);font-weight:400;margin-left:2px;}
-  .net-line{margin-top:4px;font-size:13px;color:var(--label2);}
+  .net-line{margin-top:4px;font-size:13px;color:var(--label2);text-align:right;}
   .net-line b{color:var(--label);font-weight:600;}
   .verdict{
     border-radius:12px;padding:13px 16px;margin-bottom:4px;display:flex;align-items:center;gap:10px;
@@ -265,6 +264,19 @@
     border-radius:10px;padding:11px 20px;cursor:pointer;font-family:inherit;
   }
   .file-btn:active{opacity:.4;}
+  .min-badge{
+    display:inline-block;font-size:11px;font-weight:700;color:#fff;border-radius:5px;
+    padding:2px 7px;margin-left:8px;letter-spacing:0;vertical-align:middle;line-height:1.4;
+  }
+  .min-badge.raw{background:var(--green);}
+  .min-badge.net{background:var(--blue);}
+  .cc-unavail{color:var(--red);font-weight:600;font-size:15px;}
+  .fare-row.cc-blocked{background:rgba(255,59,48,.06);}
+  .fare-row.cc-blocked .fr-name{color:var(--red);font-weight:600;}
+  .fare-pill.blocked{background:rgba(255,59,48,.12);color:var(--red);}
+  .fare-pill.blocked b{color:var(--red);}
+  .ic-net-line{font-size:12px;color:var(--label2);margin-top:5px;}
+  .ic-net-line b{color:var(--label);font-weight:600;}
 </style>
 </head>
 <body>
@@ -332,6 +344,9 @@
       <div class="section-header">ポイント計算に使用するカード</div>
       <div class="group" id="card-list"></div>
       <div class="footnote">還元率は例示です。各社キャンペーンの還元率・上限は変更される場合があります。獲得ポイントは「クレカ乗車運賃 × 還元率」で計算します。</div>
+      <div class="section-header">交通系ICのポイント還元率</div>
+      <div class="group" id="ic-rate-group"></div>
+      <div class="footnote">交通系IC（Suica・PASMO等）はチャージ時などにクレジットカード経由でポイント還元を受けられる場合があります。ここで設定した還元率（0.1%単位）で交通系ICの実質額を計算します。</div>
     </div>
   </div>
 
@@ -642,6 +657,8 @@ function buildRoutesBundle(i,j){
       }
     }
   }
+  /* 3社以上の乗継（所沢→横浜 など）: ダイクストラ法で追加 */
+  multiHopCandidates(f,t).forEach(c=>cands.push(c));
   cands.sort((x,y)=>x.cash-y.cash||x.ic-y.ic);
   const seen=new Set(), out=[];
   for(const c of cands){
@@ -697,6 +714,106 @@ function cross(opA,opB,a,b,ja,jb,f,t){
 }
 
 /* =========================================================
+   3社以上跨ぎ: ダイクストラ法（接続点=stationGroups）
+   1〜2社は既存ロジックが担当するため、3社以上のみ返す
+========================================================= */
+function multiHopCandidates(f,t){
+  const rel={};
+  const add=(op,slug)=>{ if(LUS[op]&&LUS[op].has(slug)){ (rel[op]=rel[op]||new Set()).add(slug); } };
+  f.ops.forEach(op=>add(op,f.slug));
+  t.ops.forEach(op=>add(op,t.slug));
+  const groups=[];
+  for(const g of GROUPS){
+    const mem=g.members.filter(m=>LUS[m.op]&&LUS[m.op].has(m.slug));
+    if(mem.length>=2){ mem.forEach(m=>add(m.op,m.slug)); groups.push(mem); }
+  }
+  const xfer={};
+  for(const mem of groups) for(const m of mem){
+    const k=m.op+"|"+m.slug;
+    xfer[k]=xfer[k]||[];
+    for(const n of mem) if(n.op!==m.op) xfer[k].push(n);
+  }
+  const out=[], seen=new Set();
+  for(const metric of [0,1]){
+    const legs=dijkstraPath(f,t,rel,xfer,metric);
+    if(legs && legs.length>=3){
+      const r=routeFromLegs(legs);
+      if(r && !seen.has(r.key)){ seen.add(r.key); out.push(r); }
+    }
+  }
+  return out;
+}
+
+function dijkstraPath(f,t,rel,xfer,metric){
+  /* 状態キー: "op|slug|mode"  mode T=次に乗車可 / R=直前に乗車（次は乗換のみ） */
+  const dist={}, prev={}, pq=[], visited={};
+  const push=(key,d,p)=>{ if(dist[key]===undefined||d<dist[key]){ dist[key]=d; prev[key]=p; pq.push({key,d}); } };
+  f.ops.forEach(op=>{ if(rel[op]&&rel[op].has(f.slug)) push(op+"|"+f.slug+"|T",0,null); });
+  const isGoal=key=>{ const p=key.split("|"); return p[1]===t.slug && t.ops.includes(p[0]); };
+  let goalKey=null;
+  while(pq.length){
+    let bi=0; for(let x=1;x<pq.length;x++) if(pq[x].d<pq[bi].d) bi=x;
+    const cur=pq.splice(bi,1)[0];
+    if(visited[cur.key]) continue;
+    visited[cur.key]=true;
+    if(isGoal(cur.key)){ goalKey=cur.key; break; }
+    const parts=cur.key.split("|"), op=parts[0], slug=parts[1], mode=parts[2];
+    if(mode==="T" && rel[op]){
+      for(const s2 of rel[op]){
+        if(s2===slug) continue;
+        const fv=LUS[op].get(slug,s2);
+        if(!fv||fv[0]<=0) continue;
+        push(op+"|"+s2+"|R", cur.d+fv[metric], cur.key);
+      }
+    }
+    const xs=xfer[op+"|"+slug]||[];
+    for(const n of xs) push(n.op+"|"+n.slug+"|T", cur.d, cur.key);
+  }
+  if(!goalKey) return null;
+  const chain=[]; let k=goalKey;
+  while(k){ chain.unshift(k); k=prev[k]; }
+  const legs=[];
+  for(let x=1;x<chain.length;x++){
+    const a=chain[x-1].split("|"), b=chain[x].split("|");
+    if(a[0]===b[0] && a[1]!==b[1]) legs.push({op:a[0], from:a[1], to:b[1]});
+  }
+  return legs;
+}
+
+function routeFromLegs(legList){
+  if(!legList||!legList.length) return null;
+  let cashSum=0, icSum=0, cashDisc=0, icDisc=0, ccDisc=0;
+  const via=[], disp=[], notes=[];
+  let hasCcDisc=false, hasNonCcDisc=false;
+  for(let k=0;k<legList.length;k++){
+    const L=legList[k], st=opStyle(L.op);
+    const a=LUS[L.op].get(L.from,L.to);
+    if(!a||a[0]<=0) return null;
+    cashSum+=a[0]; icSum+=a[1];
+    const fromName=LUS[L.op].name(L.from), toName=LUS[L.op].name(L.to);
+    if(k>0){
+      const prev=legList[k-1], pst=opStyle(prev.op);
+      const jNamePrev=LUS[prev.op].name(prev.to), jNameCur=fromName;
+      via.push({sta: jNamePrev===jNameCur?jNamePrev:`${jNamePrev}（${jNameCur}）`});
+      const dsc=discountsFor(prev.op,L.op, prev.from, L.to, prev.to, L.from);
+      cashDisc+=dsc.cash; icDisc+=dsc.ic; ccDisc+=dsc.cc;
+      if(dsc.cc>0){ hasCcDisc=true; disp.push({op:"割引",color:"#8E8E93",sec:`${pst.name}⇔${st.name} 連絡割引`,fare:-dsc.cc}); }
+      if(dsc.cash>dsc.cc||dsc.ic>dsc.cc) hasNonCcDisc=true;
+    }
+    via.push({sym:st.sym,name:st.name,color:st.color});
+    disp.push({op:st.name,color:st.color,sec:`${fromName} → ${toName}`,fare:a[0]});
+  }
+  notes.push(`${legList.length}社局を乗り継ぐ経路です。接続駅は運賃が最安となる駅を自動選択しています。`);
+  if(hasCcDisc) notes.push("メトロ⇔都営の連絡割引（−70円）はきっぷ・IC・クレカのすべてに適用されます。");
+  if(hasNonCcDisc) notes.push("一部区間の乗継割引はきっぷ・ICのみに適用され、クレカ乗車は割引対象外です。");
+  notes.push("IC運賃・社局跨ぎ運賃は各社運賃の合算による推定値です。実際のみなし計算と異なる場合があります。");
+  return {kind:"multi",
+    key:"m|"+legList.map(L=>L.op+":"+L.from+">"+L.to).join("|"),
+    via, cash:cashSum-cashDisc, ic:icSum-icDisc, cc:cashSum-ccDisc,
+    legs:disp, notes};
+}
+
+/* =========================================================
    state
 ========================================================= */
 const CARDS=[
@@ -706,6 +823,36 @@ const CARDS=[
 ];
 let fromIdx=null, toIdx=null, pickTarget="from";
 let selectedCardId="smcc", customRate=1.0;
+let icRate=0.5;  /* 交通系ICのポイント還元率（%・0.1%単位・ユーザー設定） */
+/* 出発駅としてクレカ乗車が使えない駅（到着駅としては可） */
+const CC_DEPART_BLOCK=[
+  {op:"tokyometro", slug:"Nakano", name:"中野", msg:"中野駅からクレカ乗車で乗ることはできません"}
+];
+function ccBlockFrom(st){
+  if(!st||!st.ops) return null;
+  return CC_DEPART_BLOCK.find(b=>st.ops.includes(b.op)&&st.slug===b.slug)||null;
+}
+function icNetOf(ic){ return ic - ic*icRate/100; }
+/* 運賃3手段の比較（最安=raw / 実質最安=net） */
+function compareFares(r, ccBlocked){
+  const card=activeCard();
+  const opts=[
+    {key:"cash", raw:r.cash, net:r.cash},
+    {key:"ic",   raw:r.ic,   net:icNetOf(r.ic)}
+  ];
+  if(!ccBlocked) opts.push({key:"cc", raw:r.cc, net:r.cc - r.cc*card.rate/100});
+  const rawMin=Math.min(...opts.map(o=>o.raw));
+  const netMin=Math.min(...opts.map(o=>o.net));
+  const isRaw=v=>Math.abs(v-rawMin)<1e-6, isNet=v=>Math.abs(v-netMin)<1e-6;
+  return {card, opts, rawMin, netMin, isRaw, isNet,
+    icNet:icNetOf(r.ic), icPt:r.ic*icRate/100,
+    ccNet: ccBlocked?null:(r.cc - r.cc*card.rate/100),
+    pt: ccBlocked?0:(r.cc*card.rate/100)};
+}
+function minBadges(isRawFlag,isNetFlag){
+  return (isRawFlag?`<span class="min-badge raw">最安</span>`:"")+
+         (isNetFlag?`<span class="min-badge net">ポイント還元考慮後の実質最安</span>`:"");
+}
 let currentRoutes=[], currentOD=null;
 let history=[];
 let currentTab=0;
@@ -828,7 +975,8 @@ function viaText(via, from, to){
 function doSearch(){
   currentRoutes=buildRoutes(fromIdx,toIdx);
   currentOD={from:STS[fromIdx].name, to:STS[toIdx].name,
-             fromR:romajiOf(STS[fromIdx]), toR:romajiOf(STS[toIdx])};
+             fromR:romajiOf(STS[fromIdx]), toR:romajiOf(STS[toIdx]),
+             ccBlock:ccBlockFrom(STS[fromIdx])};
   if(!currentRoutes.length){
     showAlert("経路が見つかりません","この駅の組合せでは運賃を計算できませんでした。データが部分的な可能性があります。",[{label:"OK",bold:true}]);
     return;
@@ -839,28 +987,23 @@ function doSearch(){
 }
 function renderResults(){
   const card=activeCard();
+  const ccBlock=currentOD.ccBlock;
   const body=document.getElementById("results-body");
-  body.innerHTML=`<div class="section-header" style="padding-top:4px;">経路候補 ${currentRoutes.length}件 ・ ${card.name}（${card.rate}%）で計算</div>`;
+  body.innerHTML=`<div class="section-header" style="padding-top:4px;">経路候補 ${currentRoutes.length}件 ・ クレカ${card.name}（${card.rate}%）／交通系IC（${icRate}%）で計算</div>`;
   currentRoutes.forEach((r,i)=>{
-    const pt=r.cc*card.rate/100, net=r.cc-pt, diff=r.ic-net;
-    const good=diff>0;
-    const actual = r.cc<r.ic ? "クレカが最安" : (r.cc===r.ic ? "IC・クレカ同額" : "ICが最安");
-    const netBest = diff>0 ? "クレカ" : (diff===0 ? "IC・クレカ（同額）" : "IC");
+    const c=compareFares(r, !!ccBlock);
+    const cashOpt=c.opts.find(o=>o.key==="cash"), icOpt=c.opts.find(o=>o.key==="ic");
+    const ccPill = ccBlock
+      ? `<div class="fare-pill blocked">クレカ <b>ご利用できません</b></div>`
+      : `<div class="fare-pill cc">クレカ <b>${r.cc}円</b> ＋${fmtPt(c.pt)}pt${minBadges(c.isRaw(r.cc),c.isNet(c.ccNet))}</div>`;
     const el=document.createElement("button");
     el.className="route-card";
     el.innerHTML=`
       <div class="rc-top"><div class="rc-via">${viaHTML(r.via, currentOD.from, currentOD.to)}</div></div>
       <div class="rc-fares">
-        <div class="fare-pill">きっぷ <b>${r.cash}円</b></div>
-        <div class="fare-pill">IC <b>${r.ic}円</b></div>
-        <div class="fare-pill cc">クレカ <b>${r.cc}円</b> ＋${fmtPt(pt)}pt</div>
-      </div>
-      <div class="rc-best">
-        <div class="rb-actual">支払額：${actual}</div>
-        <div class="rb-net ${good?"good":"bad"}">
-          <svg width="13" height="13" viewBox="0 0 13 13"><circle cx="6.5" cy="6.5" r="6" fill="currentColor" opacity=".18"/><path d="M3.5 6.8 L5.7 9 L9.6 4.4" stroke="currentColor" stroke-width="1.7" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          ポイント還元も含めた実質料金は${netBest}が最安
-        </div>
+        <div class="fare-pill">きっぷ <b>${r.cash}円</b>${minBadges(c.isRaw(cashOpt.raw),c.isNet(cashOpt.net))}</div>
+        <div class="fare-pill">IC <b>${r.ic}円</b>${minBadges(c.isRaw(icOpt.raw),c.isNet(icOpt.net))}</div>
+        ${ccPill}
       </div>`;
     el.onclick=()=>openDetail(i);
     body.appendChild(el);
@@ -872,40 +1015,47 @@ function renderResults(){
 ========================================================= */
 function openDetail(i){
   const r=currentRoutes[i], card=activeCard();
-  const pt=r.cc*card.rate/100, net=r.cc-pt, diff=r.ic-net, good=diff>0;
-  const actual = r.cc<r.ic ? "クレカが最安" : (r.cc===r.ic ? "IC・クレカ同額" : "ICが最安");
-  const netBest = diff>0 ? "クレカ" : (diff===0 ? "IC・クレカ（同額）" : "IC");
+  const ccBlock=currentOD.ccBlock;
+  const c=compareFares(r, !!ccBlock);
+  const cashOpt=c.opts.find(o=>o.key==="cash"), icOpt=c.opts.find(o=>o.key==="ic");
+  const icPtBlock = `
+        <div class="pt-line">
+          <span class="pt-sub" style="margin-right:4px;">（交通系IC・${icRate}%）</span><svg width="14" height="14" viewBox="0 0 14 14"><circle cx="7" cy="7" r="6.5" fill="#34C759"/><path d="M7 3.5 L7 10.5 M3.5 7 L10.5 7" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/></svg>${fmtPt(c.icPt)}pt 獲得
+        </div>
+        <div class="net-line">実質負担 <b>${fmtYen(c.icNet)}円</b></div>`;
+  const notes = ccBlock ? [ccBlock.msg, ...r.notes] : r.notes;
+  const ccRow = ccBlock
+    ? `<div class="fare-row cc-blocked">
+        <div class="fr-line"><div class="fr-name">クレカ乗車</div><div class="fr-amount cc-unavail">ご利用できません</div></div>
+        <div class="net-line" style="color:var(--red);">${ccBlock.msg}</div>
+      </div>`
+    : `<div class="fare-row cc-row">
+        <div class="fr-line"><div class="fr-name">クレカ乗車${minBadges(c.isRaw(r.cc),c.isNet(c.ccNet))}</div><div class="fr-amount">${r.cc}円</div></div>
+        <div class="pt-line">
+          <span class="pt-sub" style="margin-right:4px;">（${card.name}・${card.rate}%）</span><svg width="14" height="14" viewBox="0 0 14 14"><circle cx="7" cy="7" r="6.5" fill="#34C759"/><path d="M7 3.5 L7 10.5 M3.5 7 L10.5 7" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/></svg>${fmtPt(c.pt)}pt 獲得
+        </div>
+        <div class="net-line">実質負担 <b>${fmtYen(c.ccNet)}円</b></div>
+      </div>`;
+  const legsSection = ccBlock ? "" : `
+    <div class="section-header">クレカ乗車運賃の内訳</div>
+    <div class="group">
+      ${r.legs.map(l=>`<div class="leg-cell"><span class="op-badge" style="background:${l.color};">${l.op}</span><span class="leg-sec">${l.sec}</span><span class="leg-fare">${l.fare<0?"−"+(-l.fare):l.fare}円</span></div>`).join("")}
+    </div>`;
   const body=document.getElementById("detail-body");
   body.innerHTML=`
     <div style="padding:4px 4px 12px 4px;">
       <div style="font-size:22px;font-weight:700;">${currentOD.from}${currentOD.fromR?`<span class="st-romaji-lg">${currentOD.fromR}</span>`:""} → ${currentOD.to}${currentOD.toR?`<span class="st-romaji-lg">${currentOD.toR}</span>`:""}</div>
       <div style="font-size:14px;color:var(--label);margin-top:4px;line-height:1.7;">${viaHTML(r.via, currentOD.from, currentOD.to)}</div>
     </div>
-    <div class="verdict ${good?"good":"bad"}">
-      <svg width="22" height="22" viewBox="0 0 22 22"><circle cx="11" cy="11" r="10" fill="currentColor" opacity=".2"/><path d="M6 11.5 L9.5 15 L16 7.5" stroke="${good?"#1d7c3a":"#b36a00"}" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      <div class="v-text">支払額：${actual}
-        <span class="v-sub">ポイント還元も含めた実質料金は${netBest}が最安${diff>0?`（ICより ${fmtYen(diff)}円 お得）`:diff<0?`（クレカは実質 ${fmtYen(-diff)}円 割高）`:""}</span>
-      </div>
-    </div>
     <div class="section-header">運賃比較</div>
     <div class="group">
-      <div class="fare-row"><div class="fr-line"><div class="fr-name">現金（きっぷ）</div><div class="fr-amount">${r.cash}円</div></div></div>
-      <div class="fare-row"><div class="fr-line"><div class="fr-name">交通系IC</div><div class="fr-amount">${r.ic}円</div></div></div>
-      <div class="fare-row cc-row">
-        <div class="fr-line"><div class="fr-name">クレカ乗車</div><div class="fr-amount">${r.cc}円</div></div>
-        <div class="pt-line">
-          <svg width="14" height="14" viewBox="0 0 14 14"><circle cx="7" cy="7" r="6.5" fill="#34C759"/><path d="M7 3.5 L7 10.5 M3.5 7 L10.5 7" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/></svg>
-          ${fmtPt(pt)}pt 獲得 <span class="pt-sub">（${card.name}・${card.rate}%）</span>
-        </div>
-        <div class="net-line">実質負担 <b>${fmtYen(net)}円</b></div>
-      </div>
+      <div class="fare-row"><div class="fr-line"><div class="fr-name">現金（きっぷ）${minBadges(c.isRaw(cashOpt.raw),c.isNet(cashOpt.net))}</div><div class="fr-amount">${r.cash}円</div></div></div>
+      <div class="fare-row"><div class="fr-line"><div class="fr-name">交通系IC${minBadges(c.isRaw(icOpt.raw),c.isNet(icOpt.net))}</div><div class="fr-amount">${r.ic}円</div></div>${icPtBlock}</div>
+      ${ccRow}
     </div>
-    <div class="section-header">クレカ乗車運賃の内訳</div>
-    <div class="group">
-      ${r.legs.map(l=>`<div class="leg-cell"><span class="op-badge" style="background:${l.color};">${l.op}</span><span class="leg-sec">${l.sec}</span><span class="leg-fare">${l.fare<0?"−"+(-l.fare):l.fare}円</span></div>`).join("")}
-    </div>
-    <div class="footnote">${r.notes.map(n=>"・"+n).join("<br>")}</div>`;
-  history.unshift({from:currentOD.from,to:currentOD.to,via:viaText(r.via, currentOD.from, currentOD.to),cc:r.cc,pt:pt,card:card.name});
+    ${legsSection}
+    <div class="footnote">${notes.map(n=>"・"+n).join("<br>")}</div>`;
+  history.unshift({from:currentOD.from,to:currentOD.to,via:viaText(r.via, currentOD.from, currentOD.to),cc: ccBlock?null:r.cc, pt: ccBlock?0:c.pt, card:card.name, blocked:!!ccBlock});
   if(history.length>30) history.pop();
   pushScreen("scr-detail");
 }
@@ -931,8 +1081,9 @@ function renderHistory(){
           <div class="hist-sub">${h.via}</div>
         </div>
         <div class="hist-pt">
-          <div class="hist-fare">${h.cc}円</div>
-          <div class="hist-ptv">＋${fmtPt(h.pt)}pt</div>
+          ${h.blocked
+            ? `<div class="hist-fare" style="color:var(--red);font-size:13px;">クレカ不可</div>`
+            : `<div class="hist-fare">${h.cc}円</div><div class="hist-ptv">＋${fmtPt(h.pt)}pt</div>`}
         </div>
       </div>`).join("")+`</div>
     <div class="footnote">履歴はメモリ内にのみ保持され、リロードで消えます。</div>`;
@@ -941,6 +1092,26 @@ function renderHistory(){
 /* =========================================================
    cards
 ========================================================= */
+function renderIcRate(){
+  const g=document.getElementById("ic-rate-group");
+  if(!g) return;
+  g.innerHTML="";
+  const b=document.createElement("button");
+  b.className="cell";
+  b.innerHTML=`<div class="card-icon" style="background:linear-gradient(135deg,#0a7c6b,#12b39a);"></div>
+      <div style="flex:1;"><div>交通系IC 還元率</div><div style="font-size:12px;color:var(--label2);">チャージ等での還元率を設定（現在 ${icRate}%）</div></div>
+      <div class="rate-badge">${icRate}%<svg width="8" height="14" viewBox="0 0 8 14"><path d="M1 1 L7 7 L1 13" stroke="#C7C7CC" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></div>`;
+  b.onclick=openIcRate;
+  g.appendChild(b);
+}
+function openIcRate(){
+  document.getElementById("alert-input").step="0.1";
+  showAlert("交通系ICの還元率を入力","交通系IC利用時（チャージ等）のポイント還元率（%）を0.1%単位で入力してください。",
+    [{label:"キャンセル"},{label:"設定",bold:true,onTap:()=>{
+      const v=parseFloat(document.getElementById("alert-input").value);
+      if(!isNaN(v)&&v>=0&&v<=100){ icRate=Math.round(v*10)/10; renderIcRate(); }
+    }}], true);
+}
 function renderCards(){
   const list=document.getElementById("card-list");
   list.innerHTML="";
@@ -958,8 +1129,10 @@ function renderCards(){
     };
     list.appendChild(b);
   });
+  renderIcRate();
 }
 function openCustomRate(){
+  document.getElementById("alert-input").step="0.1";
   showAlert("還元率を入力","「その他のクレカ」のタッチ決済乗車還元率（%）を入力してください。",
     [{label:"キャンセル"},{label:"設定",bold:true,onTap:()=>{
       const v=parseFloat(document.getElementById("alert-input").value);
