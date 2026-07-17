@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>クレカ乗車運賃ナビ - iOS Prototype</title>
+<title>クレカ乗車運賃ナビ</title>
 <style>
   :root{
     --blue:#007AFF; --green:#34C759; --red:#FF3B30; --orange:#FF9500;
@@ -19,9 +19,7 @@
     font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Hiragino Sans","Hiragino Kaku Gothic ProN",sans-serif;
     letter-spacing:-0.4px;
   }
-  /* ============ app container (full window) ============ */
   #app{position:fixed;inset:0;background:var(--bg);overflow:hidden;}
-  /* ============ screens ============ */
   .screen{
     position:absolute;inset:0;background:var(--bg);
     display:flex;flex-direction:column;visibility:hidden;
@@ -40,7 +38,6 @@
     flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;
     padding:0 max(16px,calc((100% - 640px)/2)) 110px max(16px,calc((100% - 640px)/2));
   }
-  /* ============ nav bars ============ */
   .navbar-large{padding:16px 16px 0 16px;}
   .large-title{font-size:34px;font-weight:700;color:var(--label);padding:8px 0 12px 0;letter-spacing:0.2px;}
   .navbar{
@@ -58,7 +55,6 @@
   .navbar .back svg{margin-right:3px;}
   .navbar .back:active{opacity:.4;}
   .pushed-scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:68px max(16px,calc((100% - 640px)/2)) 60px max(16px,calc((100% - 640px)/2));}
-  /* mini title that appears on scroll (search screen) */
   .mini-nav{
     position:absolute;top:0;left:0;right:0;height:52px;z-index:150;
     background:rgba(242,242,247,.82);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
@@ -67,7 +63,6 @@
   }
   .mini-nav.show{opacity:1;}
   .mini-nav .nav-title{font-size:17px;font-weight:600;}
-  /* ============ inset grouped list ============ */
   .section-header{
     font-size:13px;color:var(--label2);text-transform:none;
     padding:20px 16px 7px 16px;font-weight:400;
@@ -84,7 +79,6 @@
   }
   .cell .chevron{margin-left:auto;flex-shrink:0;}
   .footnote{font-size:13px;color:var(--label2);padding:7px 16px 0 16px;line-height:1.45;}
-  /* ============ search form ============ */
   .route-input-card{background:var(--card);border-radius:12px;padding:6px 16px;position:relative;}
   .station-row{display:flex;align-items:center;min-height:52px;cursor:pointer;}
   .station-row:first-child{border-bottom:0.5px solid var(--sep);}
@@ -97,6 +91,8 @@
   .st-badge.arr{background:var(--green);}
   .station-name{font-size:17px;color:var(--label);}
   .station-name.placeholder{color:var(--label3);}
+  .st-romaji{font-size:11px;color:var(--label2);font-weight:400;letter-spacing:0;margin-left:6px;}
+  .st-romaji-lg{font-size:12px;color:var(--label2);font-weight:400;letter-spacing:0;margin-left:6px;}
   .swap-btn{
     position:absolute;right:14px;top:50%;transform:translateY(-50%);
     width:34px;height:34px;border-radius:50%;background:var(--bg);border:none;
@@ -116,7 +112,6 @@
     padding:7px 13px;font-size:13px;font-family:inherit;cursor:pointer;letter-spacing:-0.2px;
   }
   .chip:active{opacity:.4;}
-  /* selected card banner on search screen */
   .card-banner{
     display:flex;align-items:center;background:var(--card);border-radius:12px;
     padding:12px 16px;margin-top:24px;cursor:pointer;
@@ -129,7 +124,6 @@
   .card-chip-icon::after{
     content:"";position:absolute;left:6px;top:9px;width:10px;height:8px;border-radius:2px;background:rgba(255,215,130,.9);
   }
-  /* ============ route result cards ============ */
   .route-card{
     background:var(--card);border-radius:12px;padding:14px 16px;margin-bottom:12px;
     cursor:pointer;border:none;width:100%;text-align:left;font-family:inherit;display:block;
@@ -154,7 +148,6 @@
   .rc-best .rb-net{font-weight:600;display:flex;align-items:center;gap:5px;}
   .rc-best .rb-net.good{color:var(--green);}
   .rc-best .rb-net.bad{color:var(--orange);}
-  /* ============ detail fare rows ============ */
   .fare-row{padding:13px 16px;position:relative;background:var(--card);}
   .fare-row:not(:last-child)::after{content:"";position:absolute;left:16px;right:0;bottom:0;height:0.5px;background:var(--sep);}
   .fare-row .fr-line{display:flex;align-items:baseline;justify-content:space-between;}
@@ -181,7 +174,6 @@
   .op-badge{font-size:11px;font-weight:600;color:#fff;border-radius:4px;padding:2px 6px;margin-right:10px;flex-shrink:0;}
   .leg-sec{font-size:15px;color:var(--label);flex:1;}
   .leg-fare{font-size:15px;color:var(--label2);font-variant-numeric:tabular-nums;}
-  /* ============ tab bar ============ */
   .tabbar{
     position:absolute;bottom:0;left:0;right:0;height:64px;z-index:500;
     background:rgba(249,249,249,.85);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
@@ -194,7 +186,6 @@
   .tab .tab-label{font-size:10px;letter-spacing:0;}
   .tab.active{color:var(--blue);}
   .tab:active{opacity:.6;}
-  /* ============ sheet (station picker) ============ */
   .dim{
     position:absolute;inset:0;background:rgba(0,0,0,.4);z-index:800;opacity:0;
     transition:opacity .3s;pointer-events:none;
@@ -223,7 +214,6 @@
   .sheet-scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:0 16px 40px 16px;}
   .st-cell{display:flex;align-items:center;gap:12px;}
   .st-lines{font-size:12px;color:var(--label2);margin-top:2px;}
-  /* ============ alert ============ */
   .alert-wrap{
     position:absolute;inset:0;z-index:1000;display:none;align-items:center;justify-content:center;
     background:rgba(0,0,0,.4);
@@ -249,7 +239,6 @@
   .alert .a-btn:not(:last-child){border-right:0.5px solid var(--sep);}
   .alert .a-btn.bold{font-weight:600;}
   .alert .a-btn:active{background:rgba(0,0,0,.06);}
-  /* ============ history / empty state ============ */
   .empty{
     display:flex;flex-direction:column;align-items:center;justify-content:center;
     padding:90px 40px 0 40px;text-align:center;color:var(--label2);
@@ -261,254 +250,469 @@
   .hist-pt{margin-left:auto;text-align:right;flex-shrink:0;}
   .hist-fare{font-size:15px;font-weight:600;color:var(--blue);font-variant-numeric:tabular-nums;}
   .hist-ptv{font-size:12px;color:var(--green);font-weight:600;}
-  /* card list */
   .card-icon{width:38px;height:25px;border-radius:4px;flex-shrink:0;margin-right:12px;}
   .rate-badge{margin-left:auto;font-size:14px;color:var(--label2);display:flex;align-items:center;gap:8px;}
+  .loader-overlay{
+    position:absolute;inset:0;z-index:2000;background:var(--bg);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    padding:40px;text-align:center;
+  }
+  .loader-overlay.hidden{display:none;}
+  .loader-overlay .l-title{font-size:20px;font-weight:700;margin-bottom:8px;}
+  .loader-overlay .l-msg{font-size:14px;color:var(--label2);line-height:1.6;margin-bottom:20px;}
+  .file-btn{
+    display:inline-block;background:var(--blue);color:#fff;font-size:15px;font-weight:600;
+    border-radius:10px;padding:11px 20px;cursor:pointer;font-family:inherit;
+  }
+  .file-btn:active{opacity:.4;}
 </style>
 </head>
 <body>
 <div id="app">
 
-    <!-- =============== SEARCH (root tab 0) =============== -->
-    <div class="screen root-active" id="scr-search">
-      <div class="mini-nav" id="search-mini"><div class="nav-title">運賃ナビ</div></div>
-      <div class="scroll" id="search-scroll" style="padding-top:0;">
-        <div class="navbar-large">
-          <div class="large-title">運賃ナビ</div>
-        </div>
-        <div class="route-input-card">
-          <div class="station-row" onclick="openPicker('from')">
-            <div class="st-badge dep">出発</div>
-            <div class="station-name placeholder" id="from-label">出発駅</div>
-          </div>
-          <div class="station-row" onclick="openPicker('to')">
-            <div class="st-badge arr">到着</div>
-            <div class="station-name placeholder" id="to-label">到着駅</div>
-          </div>
-          <button class="swap-btn" onclick="swapStations(event)" aria-label="入れ替え">
-            <svg width="16" height="16" viewBox="0 0 16 16"><path d="M5 2 L5 11 M2.5 8.5 L5 11 L7.5 8.5" stroke="#007AFF" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M11 14 L11 5 M8.5 7.5 L11 5 L13.5 7.5" stroke="#007AFF" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          </button>
-        </div>
-        <button class="primary-btn" id="search-btn" disabled onclick="doSearch()">経路を検索</button>
+  <div class="loader-overlay" id="loader">
+    <div class="l-title">クレカ乗車運賃ナビ</div>
+    <div class="l-msg" id="loader-msg">運賃データを読み込んでいます…</div>
+    <label class="file-btn" id="file-btn" style="display:none;">運賃データJSONを選択
+      <input type="file" accept=".json" id="file-input" style="display:none;">
+    </label>
+  </div>
 
-        <div class="section-header">対応区間の例</div>
-        <div class="chips">
-          <button class="chip" onclick="quickSet('三軒茶屋','表参道')">三軒茶屋 → 表参道</button>
-          <button class="chip" onclick="quickSet('九段下','白金高輪')">九段下 → 白金高輪</button>
-          <button class="chip" onclick="quickSet('綾瀬','羽沢横浜国大')">綾瀬 → 羽沢横浜国大</button>
-          <button class="chip" onclick="quickSet('志村坂上','日吉')">志村坂上 → 日吉</button>
-        </div>
-
-        <div class="section-header">ポイント計算に使うカード</div>
-        <div class="card-banner" onclick="switchTab(2)">
-          <div class="card-chip-icon" id="banner-card-icon"></div>
-          <div style="flex:1;">
-            <div style="font-size:15px;font-weight:600;" id="banner-card-name">三井住友カード（NL）</div>
-            <div style="font-size:13px;color:var(--label2);" id="banner-card-rate">タッチ決済乗車 8%還元</div>
-          </div>
-          <svg class="chevron" width="8" height="14" viewBox="0 0 8 14"><path d="M1 1 L7 7 L1 13" stroke="#C7C7CC" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        </div>
-        <div class="footnote">クレカ乗車運賃は10円単位きっぷ運賃の社局合算（メトロ⇔都営70円割引のみ適用）による推定値です。みなし経路の公式仕様は非公開のため、実際の請求額と異なる場合があります。</div>
+  <!-- SEARCH -->
+  <div class="screen root-active" id="scr-search">
+    <div class="mini-nav" id="search-mini"><div class="nav-title">運賃ナビ</div></div>
+    <div class="scroll" id="search-scroll" style="padding-top:0;">
+      <div class="navbar-large">
+        <div class="large-title">運賃ナビ</div>
       </div>
-    </div>
-
-    <!-- =============== HISTORY (root tab 1) =============== -->
-    <div class="screen" id="scr-history">
-      <div class="scroll" style="padding-top:0;">
-        <div class="navbar-large"><div class="large-title">検索履歴</div></div>
-        <div id="history-content"></div>
-      </div>
-    </div>
-
-    <!-- =============== CARDS (root tab 2) =============== -->
-    <div class="screen" id="scr-cards">
-      <div class="scroll" style="padding-top:0;">
-        <div class="navbar-large"><div class="large-title">マイカード</div></div>
-        <div class="section-header">ポイント計算に使用するカード</div>
-        <div class="group" id="card-list"></div>
-        <div class="footnote">還元率は例示です。各社キャンペーンの還元率・上限は変更される場合があります。獲得ポイントは「クレカ乗車運賃 × 還元率」で計算します。</div>
-        <div class="section-header">カスタム</div>
-        <div class="group">
-          <button class="cell" onclick="openCustomRate()">
-            <span style="color:var(--blue);">還元率を自分で入力…</span>
-          </button>
+      <div class="footnote" style="padding:0 4px 12px 4px;" id="data-source"></div>
+      <div class="route-input-card">
+        <div class="station-row" onclick="openPicker('from')">
+          <div class="st-badge dep">出発</div>
+          <div class="station-name placeholder" id="from-label">出発駅</div>
         </div>
-      </div>
-    </div>
-
-    <!-- =============== RESULTS (pushed) =============== -->
-    <div class="screen pushed" id="scr-results">
-      <div class="navbar">
-        <button class="back" onclick="popScreen('scr-results')">
-          <svg width="12" height="20" viewBox="0 0 12 20"><path d="M10 2 L3 10 L10 18" stroke="#007AFF" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          検索
+        <div class="station-row" onclick="openPicker('to')">
+          <div class="st-badge arr">到着</div>
+          <div class="station-name placeholder" id="to-label">到着駅</div>
+        </div>
+        <button class="swap-btn" onclick="swapStations(event)" aria-label="入れ替え">
+          <svg width="16" height="16" viewBox="0 0 16 16"><path d="M5 2 L5 11 M2.5 8.5 L5 11 L7.5 8.5" stroke="#007AFF" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M11 14 L11 5 M8.5 7.5 L11 5 L13.5 7.5" stroke="#007AFF" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </button>
-        <div class="nav-title" id="results-title">経路候補</div>
       </div>
-      <div class="pushed-scroll" id="results-body"></div>
-    </div>
+      <button class="primary-btn" id="search-btn" disabled onclick="doSearch()">経路を検索</button>
 
-    <!-- =============== DETAIL (pushed) =============== -->
-    <div class="screen pushed" id="scr-detail">
-      <div class="navbar">
-        <button class="back" onclick="popScreen('scr-detail')">
-          <svg width="12" height="20" viewBox="0 0 12 20"><path d="M10 2 L3 10 L10 18" stroke="#007AFF" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          経路候補
-        </button>
-        <div class="nav-title">運賃の内訳</div>
+      <div class="section-header">区間の例</div>
+      <div class="chips" id="example-chips"></div>
+
+      <div class="section-header">ポイント計算に使うカード</div>
+      <div class="card-banner" onclick="switchTab(2)">
+        <div class="card-chip-icon" id="banner-card-icon"></div>
+        <div style="flex:1;">
+          <div style="font-size:15px;font-weight:600;" id="banner-card-name"></div>
+          <div style="font-size:13px;color:var(--label2);" id="banner-card-rate"></div>
+        </div>
+        <svg class="chevron" width="8" height="14" viewBox="0 0 8 14"><path d="M1 1 L7 7 L1 13" stroke="#C7C7CC" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </div>
-      <div class="pushed-scroll" id="detail-body"></div>
+      <div class="footnote" id="app-note"></div>
     </div>
+  </div>
 
-    <!-- =============== tab bar =============== -->
-    <div class="tabbar" id="tabbar">
-      <button class="tab active" onclick="switchTab(0)" id="tab-0">
-        <svg width="26" height="26" viewBox="0 0 26 26"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2" fill="none"/><path d="M16.5 16.5 L22 22" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>
-        <span class="tab-label">検索</span>
+  <!-- HISTORY -->
+  <div class="screen" id="scr-history">
+    <div class="scroll" style="padding-top:0;">
+      <div class="navbar-large"><div class="large-title">検索履歴</div></div>
+      <div id="history-content"></div>
+    </div>
+  </div>
+
+  <!-- CARDS -->
+  <div class="screen" id="scr-cards">
+    <div class="scroll" style="padding-top:0;">
+      <div class="navbar-large"><div class="large-title">マイカード</div></div>
+      <div class="section-header">ポイント計算に使用するカード</div>
+      <div class="group" id="card-list"></div>
+      <div class="footnote">還元率は例示です。各社キャンペーンの還元率・上限は変更される場合があります。獲得ポイントは「クレカ乗車運賃 × 還元率」で計算します。</div>
+    </div>
+  </div>
+
+  <!-- RESULTS -->
+  <div class="screen pushed" id="scr-results">
+    <div class="navbar">
+      <button class="back" onclick="popScreen('scr-results')">
+        <svg width="12" height="20" viewBox="0 0 12 20"><path d="M10 2 L3 10 L10 18" stroke="#007AFF" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        検索
       </button>
-      <button class="tab" onclick="switchTab(1)" id="tab-1">
-        <svg width="26" height="26" viewBox="0 0 26 26"><circle cx="13" cy="13" r="10" stroke="currentColor" stroke-width="2" fill="none"/><path d="M13 7 L13 13 L17.5 15.5" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        <span class="tab-label">履歴</span>
-      </button>
-      <button class="tab" onclick="switchTab(2)" id="tab-2">
-        <svg width="26" height="26" viewBox="0 0 26 26"><rect x="2" y="5" width="22" height="16" rx="3" stroke="currentColor" stroke-width="2" fill="none"/><rect x="2" y="9" width="22" height="3.5" fill="currentColor"/></svg>
-        <span class="tab-label">カード</span>
-      </button>
+      <div class="nav-title" id="results-title">経路候補</div>
     </div>
+    <div class="pushed-scroll" id="results-body"></div>
+  </div>
 
-    <!-- =============== station picker sheet =============== -->
-    <div class="dim" id="sheet-dim" onclick="closePicker()"></div>
-    <div class="sheet" id="station-sheet">
-      <div class="grabber"></div>
-      <div class="sheet-title" id="picker-title">出発駅を選択</div>
-      <div class="searchbar">
-        <svg width="16" height="16" viewBox="0 0 16 16"><circle cx="7" cy="7" r="5" stroke="rgba(60,60,67,0.6)" stroke-width="1.6" fill="none"/><path d="M11 11 L14.5 14.5" stroke="rgba(60,60,67,0.6)" stroke-width="1.8" stroke-linecap="round"/></svg>
-        <input type="text" id="station-search" placeholder="駅名で検索" oninput="renderStationList()">
-      </div>
-      <div class="sheet-scroll"><div class="group" id="station-list"></div></div>
+  <!-- DETAIL -->
+  <div class="screen pushed" id="scr-detail">
+    <div class="navbar">
+      <button class="back" onclick="popScreen('scr-detail')">
+        <svg width="12" height="20" viewBox="0 0 12 20"><path d="M10 2 L3 10 L10 18" stroke="#007AFF" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        経路候補
+      </button>
+      <div class="nav-title">運賃の内訳</div>
     </div>
+    <div class="pushed-scroll" id="detail-body"></div>
+  </div>
 
-    <!-- =============== alert =============== -->
-    <div class="alert-wrap" id="alert-wrap">
-      <div class="alert">
-        <div class="a-title" id="alert-title"></div>
-        <div class="a-msg" id="alert-msg"></div>
-        <input type="number" id="alert-input" style="display:none;" inputmode="decimal">
-        <div class="a-btns" id="alert-btns"></div>
-      </div>
+  <!-- tab bar -->
+  <div class="tabbar" id="tabbar">
+    <button class="tab active" onclick="switchTab(0)" id="tab-0">
+      <svg width="26" height="26" viewBox="0 0 26 26"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2" fill="none"/><path d="M16.5 16.5 L22 22" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>
+      <span class="tab-label">検索</span>
+    </button>
+    <button class="tab" onclick="switchTab(1)" id="tab-1">
+      <svg width="26" height="26" viewBox="0 0 26 26"><circle cx="13" cy="13" r="10" stroke="currentColor" stroke-width="2" fill="none"/><path d="M13 7 L13 13 L17.5 15.5" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span class="tab-label">履歴</span>
+    </button>
+    <button class="tab" onclick="switchTab(2)" id="tab-2">
+      <svg width="26" height="26" viewBox="0 0 26 26"><rect x="2" y="5" width="22" height="16" rx="3" stroke="currentColor" stroke-width="2" fill="none"/><rect x="2" y="9" width="22" height="3.5" fill="currentColor"/></svg>
+      <span class="tab-label">カード</span>
+    </button>
+  </div>
+
+  <!-- station picker -->
+  <div class="dim" id="sheet-dim" onclick="closePicker()"></div>
+  <div class="sheet" id="station-sheet">
+    <div class="grabber"></div>
+    <div class="sheet-title" id="picker-title">出発駅を選択</div>
+    <div class="searchbar">
+      <svg width="16" height="16" viewBox="0 0 16 16"><circle cx="7" cy="7" r="5" stroke="rgba(60,60,67,0.6)" stroke-width="1.6" fill="none"/><path d="M11 11 L14.5 14.5" stroke="rgba(60,60,67,0.6)" stroke-width="1.8" stroke-linecap="round"/></svg>
+      <input type="text" id="station-search" placeholder="駅名で検索" oninput="renderStationList()">
     </div>
+    <div class="sheet-scroll"><div class="group" id="station-list"></div></div>
+  </div>
+
+  <!-- alert -->
+  <div class="alert-wrap" id="alert-wrap">
+    <div class="alert">
+      <div class="a-title" id="alert-title"></div>
+      <div class="a-msg" id="alert-msg"></div>
+      <input type="number" id="alert-input" style="display:none;" inputmode="decimal">
+      <div class="a-btns" id="alert-btns"></div>
+    </div>
+  </div>
 
 </div>
 
 <script>
 /* =========================================================
-   data
+   運賃データ読み込み
+   対応フォーマット:
+     1. fare-bundle（fare_metro_toei_bundle.json: メトロ＋都営統合）
+     2. distance-band（fare_tx.json: つくばエクスプレス）
 ========================================================= */
-const OP_COLORS = {
-  "東急":"#DA0442","東京メトロ":"#149DD3","都営地下鉄":"#199B4C",
-  "相鉄":"#0A234F","東武":"#0F6CC3","JR東日本":"#2E8B2E"
-};
-const STATIONS = [
-  {name:"三軒茶屋", lines:"東急田園都市線・世田谷線"},
-  {name:"表参道",   lines:"東京メトロ銀座線・千代田線・半蔵門線"},
-  {name:"九段下",   lines:"東京メトロ東西線・半蔵門線／都営新宿線"},
-  {name:"白金高輪", lines:"東京メトロ南北線／都営三田線"},
-  {name:"綾瀬",     lines:"東京メトロ千代田線（JR常磐線と改札共用）"},
-  {name:"羽沢横浜国大", lines:"相鉄新横浜線（JRと改札共用）"},
-  {name:"志村坂上", lines:"都営三田線"},
-  {name:"日吉",     lines:"東急東横線・目黒線・新横浜線"},
-  {name:"渋谷",     lines:"東急・東京メトロ ほか"},
-  {name:"押上",     lines:"東武・都営・東京メトロ・京成"}
-];
+let MODE=null;          // "bundle" | "tx"
+let DATA=null;
+let STS=[];             // 統一駅リスト {slug,name,ops:[]}
+let OPSDATA={};         // operator → データ
+let LUS={};             // operator → 運賃lookup
+let GROUPS=[];          // stationGroups（存在する事業者のみ）
+let DISCOUNTS=[];       // 割引テーブル
+let LINE=null;          // tx用
 
-/* line symbols */
-const L = {
-  DT:{sym:"DT",name:"田園都市線",color:"#00A040"},
-  Z: {sym:"Z", name:"半蔵門線",color:"#8F76D6"},
-  G: {sym:"G", name:"銀座線",color:"#F39700"},
-  N: {sym:"N", name:"南北線",color:"#00AC9B"},
-  S: {sym:"S", name:"都営新宿線",color:"#6CBB5A"},
-  I: {sym:"I", name:"都営三田線",color:"#0079C2"},
-  C: {sym:"C", name:"千代田線",color:"#00BB85"},
-  F: {sym:"F", name:"副都心線",color:"#9C5E31"},
-  TY:{sym:"TY",name:"東横線",color:"#DA0442"},
-  SH:{sym:"SH",name:"東急新横浜線",color:"#8F1D75"},
-  SO:{sym:"SO",name:"相鉄新横浜線",color:"#0A234F"},
-  MG:{sym:"MG",name:"目黒線",color:"#009CD2"}
+/* 事業者の表示スタイル（未知の事業者はグレーで自動生成） */
+const OP_STYLE={
+  tokyometro:{sym:"M", name:"東京メトロ", color:"#149DD3"},
+  toei:      {sym:"都", name:"都営地下鉄", color:"#199B4C"},
+  tokyu:     {sym:"TK", name:"東急電鉄", color:"#DA0442"},
+  tobu:      {sym:"TB", name:"東武鉄道", color:"#0F6CC3"},
+  seibu:     {sym:"SE", name:"西武鉄道", color:"#00A5B9"},
+  keio:      {sym:"KO", name:"京王電鉄", color:"#DD0077"},
+  keikyu:    {sym:"KK", name:"京急電鉄", color:"#00A7E3"},
+  sotetsu:   {sym:"SO", name:"相模鉄道", color:"#0A234F"},
+  odakyu:    {sym:"OE", name:"小田急電鉄", color:"#2288CC"},
+  minatomirai:{sym:"MM", name:"横浜高速鉄道", color:"#09357F"}
 };
-const sta = n=>({sta:n});
+function romajiOf(st){
+  if(MODE==="tx"||!st||!st.slug||/[぀-鿿ぁ-ヶ]/.test(st.slug)) return "";
+  if(st.slug===st.name) return "";  /* 未和訳（名前がスラッグそのまま）は重複表示しない */
+  return st.slug.replace(/([a-z])([A-Z])/g,"$1-$2");
+}
+function opStyle(op){
+  if(OP_STYLE[op]) return OP_STYLE[op];
+  const d=OPSDATA[op];
+  return {sym:(op||"?").slice(0,2).toUpperCase(), name:(d&&d.operatorName)||op, color:"#8E8E93"};
+}
 
-/* fares: cash=きっぷ, ic=交通系IC, cc=クレカ乗車（推定） */
-const ROUTES = {
-  "三軒茶屋>表参道":[
-    { via:[L.DT, sta("渋谷"), L.Z],
-      cash:340, ic:338, cc:360,
-      legs:[{op:"東急",sec:"三軒茶屋 → 渋谷",fare:180},{op:"東京メトロ",sec:"渋谷 → 表参道",fare:180}],
-      notes:["きっぷ・ICは渋谷駅接続の乗継割引（▲20円）が適用されます。","クレカ乗車はノーラッチ直通でも乗継割引が適用されず、両社の10円単位運賃の単純合算になります。"] },
-    { via:[L.DT, sta("渋谷"), L.G],
-      cash:340, ic:338, cc:360,
-      legs:[{op:"東急",sec:"三軒茶屋 → 渋谷",fare:180},{op:"東京メトロ",sec:"渋谷 → 表参道",fare:180}],
-      notes:["渋谷駅は東急とメトロが改札を共用しているため、改札内乗換なら運賃は直通利用と同じです。"] }
-  ],
-  "九段下>白金高輪":[
-    { via:[L.Z, sta("永田町"), L.N],
-      cash:210, ic:209, cc:210,
-      legs:[{op:"東京メトロ",sec:"九段下 → 白金高輪",fare:210}],
-      notes:["経路が特定できない区間のため、IC・クレカとも安いメトロ経由の運賃でみなし計算されます。"] },
-    { via:[L.S, sta("神保町"), L.I],
-      cash:220, ic:209, cc:210,
-      legs:[{op:"東京メトロ",sec:"（みなし）九段下 → 白金高輪",fare:210}],
-      notes:["実際に都営線に乗ってもメトロ経由運賃でみなし計算されます。きっぷを買う場合のみ都営運賃220円です。","クレカ乗車210円はきっぷ220円より安くなる区間です。"] }
-  ],
-  "綾瀬>羽沢横浜国大":[
-    { via:[L.C, sta("明治神宮前"), L.F, L.TY, L.SH, sta("新横浜"), L.SO],
-      cash:810, ic:803, cc:850,
-      legs:[{op:"東京メトロ",sec:"綾瀬 → 渋谷",fare:250},{op:"東急",sec:"渋谷 → 新横浜（新横浜線）",fare:390},{op:"相鉄",sec:"新横浜 → 羽沢横浜国大",fare:210}],
-      notes:["綾瀬（JR共用改札）・羽沢横浜国大（JR共用改札）のため、ICは最安のJR経由（803円）でみなし計算されます。","JR東日本はクレカ乗車非対応のため、クレカはメトロ・東急・相鉄経由の運賃になります（IC比 +47円）。","内訳は表示上の概算です。"] }
-  ],
-  "志村坂上>日吉":[
-    { via:[L.I, sta("目黒"), L.MG],
-      cash:630, ic:630, cc:630,
-      legs:[{op:"都営地下鉄",sec:"志村坂上 → 目黒",fare:380},{op:"東急",sec:"目黒 → 日吉",fare:250}],
-      notes:["ICは税抜運賃最安のメトロ経由（630円）でみなし計算。実経路の合算IC627円より3円高くなります。","クレカは10円単位運賃最安の都営目黒経由で計算され、こちらも630円。","3方式ほぼ同額のため、還元がある分クレカが実質最安になる区間です。"] }
-  ]
-};
-function viaHTML(via, from, to){
-  const tokens = [{sta:from}, ...via, {sta:to}];
-  return tokens.map(t=> t.sta
-    ? `<span class="via-sta">${t.sta}</span>`
-    : `<span class="line-badge" style="background:${t.color};">${t.sym}</span><span class="via-line">${t.name}</span>`
-  ).join(`<span class="via-arrow"> → </span>`);
+async function boot(){
+  for(const f of ["fare.json","fare_metro_toei_bundle.json","fare_tx.json"]){
+    try{
+      const res=await fetch(f);
+      if(res.ok){ initData(await res.json()); return; }
+    }catch(e){/* 次へ */}
+  }
+  document.getElementById("loader-msg").innerHTML=
+    "運賃データを自動読み込みできませんでした。<br>fare.json（推奨）/ fare_metro_toei_bundle.json / fare_tx.json のいずれかを選択してください。";
+  document.getElementById("file-btn").style.display="inline-block";
 }
-function viaText(via, from, to){
-  const tokens = [{sta:from}, ...via, {sta:to}];
-  return tokens.map(t=> t.sta ? t.sta : `[${t.sym}]${t.name}`).join(" → ");
-}
-/* register reverse directions */
-Object.keys(ROUTES).forEach(k=>{
-  const [a,b]=k.split(">");
-  if(!ROUTES[b+">"+a]) ROUTES[b+">"+a]=ROUTES[k];
+document.getElementById("file-input").addEventListener("change",e=>{
+  const f=e.target.files[0];
+  if(!f) return;
+  const r=new FileReader();
+  r.onload=()=>{ try{ initData(JSON.parse(r.result)); }catch(err){ alert("JSONの解析に失敗しました: "+err.message); } };
+  r.readAsText(f,"utf-8");
 });
 
-const CARDS = [
-  {id:"smcc",  name:"三井住友カード（NL）", rate:8,  grad:"linear-gradient(135deg,#0b5c3e,#12855a)"},
-  {id:"smccg", name:"三井住友カード ゴールド（NL）", rate:10, grad:"linear-gradient(135deg,#8a6d1d,#c9a227)"},
-  {id:"jcbw",  name:"JCB カード W", rate:5, grad:"linear-gradient(135deg,#123a6b,#1e5fae)"},
-  {id:"rkt",   name:"楽天カード", rate:1, grad:"linear-gradient(135deg,#7a0f22,#bf0000)"}
-];
+function initData(json){
+  if(json.format==="fare") initFareV2(json);
+  else if(json.format==="fare-bundle") initBundle(json);
+  else if(json.fareType==="distance-band") initTX(json);
+  else { alert("対応していないフォーマットです"); return; }
+  document.getElementById("loader").classList.add("hidden");
+  updateBanner();
+  renderCards();
+}
+
+/* ---------- 運賃lookup（インポータと同一ロジック） ---------- */
+function fareLookup(opData){
+  const map=new Map();
+  for(const [f,t,cash,ic] of opData.fares){
+    map.set(f+"|"+t,[cash,ic]);
+    if(opData.symmetric) map.set(t+"|"+f,[cash,ic]);
+  }
+  const idx={}; opData.stations.forEach(s=>idx[s.slug]=s.idx);
+  const nameOf={}; opData.stations.forEach(s=>nameOf[s.slug]=s.name);
+  return {
+    get(a,b){
+      if(!(a in idx)||!(b in idx)) return null;
+      if(a===b) return [0,0];
+      return map.get(idx[a]+"|"+idx[b])||null;
+    },
+    has(s){ return s in idx; },
+    name(s){ return nameOf[s]||s; }
+  };
+}
+
+/* ---------- fare.json v2（設計書§12.3）初期化: N事業者対応 ---------- */
+function initFareV2(json){
+  const mats=json.operators.filter(o=>o.fareType==="od-matrix");
+  const tx=json.operators.find(o=>o.fareType==="distance-band");
+  if(!mats.length){
+    if(tx){ initTX(tx); return; }
+    alert("fare.jsonに対応事業者データが見つかりません"); return;
+  }
+  MODE="bundle"; DATA=json;
+  OPSDATA={}; LUS={};
+  mats.forEach(o=>{ OPSDATA[o.operator]=o; LUS[o.operator]=fareLookup(o); });
+  GROUPS=(json.stationGroups||[])
+    .map(g=>({id:g.id,members:g.members.filter(m=>LUS[m.op]&&LUS[m.op].has(m.slug))}))
+    .filter(g=>g.members.length>=2);
+  DISCOUNTS=json.discounts||[];
+
+  /* 駅統合（スラッグ単位）: 全事業者の駅を集約し、所属社局を保持 */
+  const groupName={};
+  (json.stationGroups||[]).forEach(g=>g.members.forEach(x=>{ if(x.name) groupName[x.op+"|"+x.slug]=x.name; }));
+  const bySlug={};
+  mats.forEach(o=>o.stations.forEach(st=>{
+    const nm=groupName[o.operator+"|"+st.slug]||st.name;
+    if(!bySlug[st.slug]) bySlug[st.slug]={slug:st.slug,name:nm,ops:[]};
+    if(!bySlug[st.slug].ops.includes(o.operator)) bySlug[st.slug].ops.push(o.operator);
+    if(bySlug[st.slug].name===st.slug&&nm!==st.slug) bySlug[st.slug].name=nm;
+  }));
+  STS=Object.values(bySlug).sort((a,b)=>a.name.localeCompare(b.name,"ja"));
+
+  document.getElementById("data-source").textContent=
+    `fare.json v${json.version}（${json.operators.map(o=>o.operatorName||o.operator).join("＋")}） 全${STS.length}駅 / ${json.generated||""}`;
+  document.getElementById("app-note").textContent=
+    "運賃計算はfare.jsonのみで完結しています。社局跨ぎは同一駅グループを接続点とした合算の最安値による推定です（連絡割引はメトロ⇔都営−70円のみ。クレカ乗車では他の乗継割引は適用されません）。IC運賃の社局跨ぎは各社IC運賃の合算による近似値です。";
+  setChips([["Kudanshita","ShirokaneTakanawa"],["SangenJaya","Omotesando"],["Otemachi","Mita"],["Jimbocho","Meguro"]]);
+}
+
+/* ---------- 旧fare-bundle(v1)はv2相当に変換して初期化 ---------- */
+function initBundle(json){
+  const groups=[
+    ...((json.interop&&json.interop.junctions)||[]).map((j,i)=>({id:"auto-"+i,members:[{op:"tokyometro",slug:j.metro},{op:"toei",slug:j.toei}]})),
+    ...((json.interop&&json.interop.junctionPairs)||[]).map((j,i)=>({id:"pair-"+i,members:[{op:"tokyometro",slug:j.metro},{op:"toei",slug:j.toei}]}))
+  ];
+  initFareV2({format:"fare",version:1,generated:json.generated,
+    operators:json.operators,stationGroups:groups,
+    discounts:(json.interop&&json.interop.transferDiscounts)||[]});
+}
+
+/* ---------- TX 初期化 ---------- */
+function initTX(json){
+  MODE="tx"; DATA=json;
+  LINE=json.lines[0];
+  STS=LINE.stations.map(s=>({slug:s.id,name:s.name,kmX10:s.kmX10}));
+  document.getElementById("data-source").textContent=
+    `${json.operatorName} ／ ${LINE.name} 全${STS.length}駅（fare_tx.json）`;
+  document.getElementById("app-note").textContent=
+    "運賃・駅データはすべて fare_tx.json から読み込んでいます。クレカ乗車運賃は現金（きっぷ）運賃と同額です。";
+  setChips([[0,STS.length-1],[4,14],[0,11]]);
+}
+
+function setChips(pairs){
+  const chips=document.getElementById("example-chips");
+  chips.innerHTML="";
+  pairs.forEach(p=>{
+    let a,b;
+    if(MODE==="bundle"){
+      a=STS.findIndex(s=>s.slug===p[0]); b=STS.findIndex(s=>s.slug===p[1]);
+      if(a<0||b<0) return;
+    }else{ a=p[0]; b=p[1]; }
+    const btn=document.createElement("button");
+    btn.className="chip";
+    btn.textContent=`${STS[a].name} → ${STS[b].name}`;
+    btn.onclick=()=>quickSet(a,b);
+    chips.appendChild(btn);
+  });
+}
 
 /* =========================================================
-   state (in-memory only)
+   経路候補の生成
 ========================================================= */
-let fromSt=null, toSt=null, pickTarget="from";
-let selectedCardId="smcc", customRate=null;
+function buildRoutes(i,j){
+  if(MODE==="tx") return buildRoutesTX(i,j);
+  return buildRoutesBundle(i,j);
+}
+
+/* ---------- TX: 距離帯計算 ---------- */
+function buildRoutesTX(i,j){
+  const kmX10=Math.abs(STS[j].kmX10-STS[i].kmX10);
+  const km=Math.ceil(kmX10/10);
+  let bi=-1;
+  for(let k=0;k<DATA.bands.length;k++){ if(km<=DATA.bands[k].maxKm){ bi=k; break; } }
+  const b=DATA.bands[bi];
+  return [{
+    via:[{sym:LINE.symbol,name:LINE.name,color:LINE.color}],
+    cash:b.cash, ic:b.ic, cc:b.cash,
+    legs:[{op:"つくばエクスプレス",color:LINE.color,sec:`${STS[i].name} → ${STS[j].name}`,fare:b.cash}],
+    notes:[
+      "クレカ乗車運賃は現金（きっぷ）運賃と同額です。",
+      `運賃計算キロ ${km}km（キロ程差 ${(kmX10/10).toFixed(1)}km のは数切り上げ）、適用距離帯 〜${b.maxKm}km。`,
+      `IC運賃は1円単位（${b.ic}円）。きっぷ運賃はIC運賃の10円単位切り上げです。`
+    ]
+  }];
+}
+
+/* ---------- bundle: 同一駅グループを接続点とした最安合算 ---------- */
+/* 支払手段別の割引額を返す。条件付き割引（接続駅＋両側対象区間）に対応 */
+function discountsFor(opA,opB,fromSlug,toSlug,ja,jb){
+  const r={cash:0,ic:0,cc:0};
+  const lc=s=>String(s).toLowerCase();
+  const has=(arr,slug)=>arr.some(x=>lc(x)===lc(slug));  /* スラッグ照合は大文字小文字を無視 */
+  for(const d of DISCOUNTS){
+    const o=d.operators||[];
+    let fwd=null;
+    if(o[0]===opA&&o[1]===opB) fwd=true;
+    else if(o[0]===opB&&o[1]===opA) fwd=false;
+    else continue;
+    /* 条件付き割引: 接続駅と対象区間の判定 */
+    if(d.junction){
+      const jset=Array.isArray(d.junction)?d.junction:[d.junction];
+      if(!has(jset,ja)&&!has(jset,jb)) continue;
+    }
+    if(d.a||d.b){
+      const A=fwd?d.a:d.b, B=fwd?d.b:d.a;
+      if(A&&!has(A,fromSlug)) continue;
+      if(B&&!has(B,toSlug)) continue;
+    }
+    (d.appliesTo||[]).forEach(k=>{ if(k in r) r[k]=Math.max(r[k],d.amount||0); });
+  }
+  return r;
+}
+
+function buildRoutesBundle(i,j){
+  const f=STS[i], t=STS[j];
+  const cands=[];
+  /* 単独社局で完結する候補 */
+  f.ops.filter(op=>t.ops.includes(op)).forEach(op=>{
+    const v=LUS[op].get(f.slug,t.slug);
+    if(v&&v[0]>0) cands.push(single(op,v,f,t));
+  });
+  /* 社局跨ぎ: stationGroupsの各メンバー組合せを接続点として展開 */
+  for(const g of GROUPS){
+    const byOp={};
+    g.members.forEach(m=>{ (byOp[m.op]=byOp[m.op]||[]).push(m); });
+    for(const opA of f.ops){
+      if(!byOp[opA]&&!LUS[opA]) continue;
+      for(const opB of t.ops){
+        if(opA===opB) continue;
+        const jas=byOp[opA]||[], jbs=byOp[opB]||[];
+        for(const ja of jas) for(const jb of jbs){
+          const a=LUS[opA].get(f.slug,ja.slug), b=LUS[opB].get(jb.slug,t.slug);
+          if(!a||!b||a[0]<=0||b[0]<=0) continue;
+          cands.push(cross(opA,opB,a,b,ja.slug,jb.slug,f,t));
+        }
+      }
+    }
+  }
+  cands.sort((x,y)=>x.cash-y.cash||x.ic-y.ic);
+  const seen=new Set(), out=[];
+  for(const c of cands){
+    if(seen.has(c.key)) continue;
+    seen.add(c.key);
+    out.push(c);
+    if(out.length>=4) break;
+  }
+  return out;
+}
+
+function single(op,v,f,t){
+  const o=opStyle(op);
+  const notes=["クレカ乗車運賃は10円単位きっぷ運賃と同額です（同一社局内・割引なし）。"];
+  if(f.ops.length>1&&t.ops.length>1)
+    notes.push("出発・到着とも複数社局に存在する駅のため、実際の改札処理では実乗車経路に関わらず最安経路でみなし計算される可能性があります。");
+  return {kind:"single", key:"s|"+op,
+    via:[{sym:o.sym,name:o.name,color:o.color}],
+    cash:v[0], ic:v[1], cc:v[0],
+    legs:[{op:o.name,color:o.color,sec:`${f.name} → ${t.name}`,fare:v[0]}],
+    notes};
+}
+
+function cross(opA,opB,a,b,ja,jb,f,t){
+  const A=opStyle(opA), B=opStyle(opB);
+  const d=discountsFor(opA,opB,f.slug,t.slug,ja,jb);
+  const jNameA=LUS[opA].name(ja), jNameB=LUS[opB].name(jb);
+  const jDisp=jNameA===jNameB?jNameA:`${jNameA}（${jNameB}）`;
+  const legs=[
+    {op:A.name,color:A.color,sec:`${f.name} → ${jNameA}`,fare:a[0]},
+    {op:B.name,color:B.color,sec:`${jNameB} → ${t.name}`,fare:b[0]}
+  ];
+  const notes=[];
+  if(d.cc>0){
+    legs.push({op:"割引",color:"#8E8E93",sec:`${A.name}⇔${B.name} 連絡割引`,fare:-d.cc});
+    notes.push(`${A.name}⇔${B.name}の連絡割引（−${d.cc}円）はきっぷ・IC・クレカのすべてに適用されます。`);
+  }
+  if(d.cash>d.cc||d.ic>d.cc){
+    const parts=[];
+    if(d.cash>d.cc) parts.push(`きっぷ−${d.cash}円`);
+    if(d.ic>d.cc) parts.push(`IC−${d.ic}円`);
+    notes.push(`この乗継には乗継割引（${parts.join("・")}）が適用されますが、クレカ乗車は割引対象外です。`);
+  }
+  if(d.cash===0&&d.ic===0&&d.cc===0){
+    notes.push("この乗継に割引はなく、両社局運賃の単純合算です。");
+  }
+  notes.push(`接続駅は運賃が最安となる ${jDisp} を自動選択しています。`);
+  notes.push("IC運賃は各社IC運賃の合算"+(d.ic>0?`−${d.ic}円`:"")+"による推定値です。実際のみなし計算と異なる場合があります。");
+  return {kind:"cross", key:`x|${opA}|${opB}|${ja}|${jb}`,
+    via:[{sym:A.sym,name:A.name,color:A.color},{sta:jDisp},{sym:B.sym,name:B.name,color:B.color}],
+    cash:a[0]+b[0]-d.cash, ic:a[1]+b[1]-d.ic, cc:a[0]+b[0]-d.cc,
+    legs, notes};
+}
+
+/* =========================================================
+   state
+========================================================= */
+const CARDS=[
+  {id:"smcc", name:"三井住友カード(NL)/Olive", rate:8,  grad:"linear-gradient(135deg,#0b5c3e,#12855a)"},
+  {id:"jcb",  name:"JCB CARD W/S",             rate:10, grad:"linear-gradient(135deg,#123a6b,#1e5fae)"},
+  {id:"other",name:"その他のクレカ",            rate:null, grad:"linear-gradient(135deg,#3a3a3c,#6e6e73)", custom:true}
+];
+let fromIdx=null, toIdx=null, pickTarget="from";
+let selectedCardId="smcc", customRate=1.0;
 let currentRoutes=[], currentOD=null;
 let history=[];
 let currentTab=0;
 
 function activeCard(){
-  if(customRate!==null) return {name:"カスタム設定", rate:customRate, grad:"linear-gradient(135deg,#3a3a3c,#6e6e73)"};
-  return CARDS.find(c=>c.id===selectedCardId);
+  const c=CARDS.find(x=>x.id===selectedCardId);
+  return c.custom ? {...c, rate:customRate} : c;
 }
 function fmtPt(x){ return (Math.round(x*10)/10).toLocaleString("ja-JP",{maximumFractionDigits:1}); }
 function fmtYen(x){ return x.toLocaleString("ja-JP",{maximumFractionDigits:1}); }
@@ -522,7 +726,6 @@ function switchTab(i){
     document.getElementById(id).classList.toggle("root-active", idx===i);
   });
   for(let t=0;t<3;t++) document.getElementById("tab-"+t).classList.toggle("active", t===i);
-  /* pop any pushed screens instantly */
   ["scr-results","scr-detail"].forEach(id=>{
     const s=document.getElementById(id);
     s.classList.remove("in"); s.style.visibility="";
@@ -541,8 +744,6 @@ function popScreen(id){
   s.classList.remove("in");
   setTimeout(()=>{ s.style.visibility=""; },360);
 }
-
-/* large title shrink */
 document.getElementById("search-scroll").addEventListener("scroll",function(){
   document.getElementById("search-mini").classList.toggle("show", this.scrollTop>44);
 });
@@ -550,6 +751,10 @@ document.getElementById("search-scroll").addEventListener("scroll",function(){
 /* =========================================================
    station picker
 ========================================================= */
+function stationSub(s){
+  if(MODE==="tx") return `${LINE.name}`;
+  return s.ops.map(op=>opStyle(op).name).join("・");
+}
 function openPicker(target){
   pickTarget=target;
   document.getElementById("picker-title").textContent = target==="from"?"出発駅を選択":"到着駅を選択";
@@ -563,54 +768,72 @@ function closePicker(){
   document.getElementById("station-sheet").classList.remove("show");
 }
 function renderStationList(){
-  const q=document.getElementById("station-search").value.trim();
+  const q=document.getElementById("station-search").value.trim().toLowerCase();
   const list=document.getElementById("station-list");
   list.innerHTML="";
-  STATIONS.filter(s=>!q||s.name.includes(q)).forEach(s=>{
+  STS.forEach((s,idx)=>{
+    if(q && !s.name.toLowerCase().includes(q) && !s.slug.toLowerCase().includes(q)) return;
     const b=document.createElement("button");
     b.className="cell st-cell";
-    b.innerHTML=`<div style="flex:1;"><div>${s.name}</div><div class="st-lines">${s.lines}</div></div>`+
-      (((pickTarget==="from"&&fromSt===s.name)||(pickTarget==="to"&&toSt===s.name))?
+    const rj=romajiOf(s);
+    b.innerHTML=`<div style="flex:1;"><div>${s.name}${rj?`<span class="st-romaji">${rj}</span>`:""}</div><div class="st-lines">${stationSub(s)}</div></div>`+
+      (((pickTarget==="from"&&fromIdx===idx)||(pickTarget==="to"&&toIdx===idx))?
         `<svg width="16" height="13" viewBox="0 0 16 13"><path d="M1.5 7 L6 11.5 L14.5 1.5" stroke="#007AFF" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>`:"");
-    b.onclick=()=>{ setStation(pickTarget,s.name); closePicker(); };
+    b.onclick=()=>{ setStation(pickTarget,idx); closePicker(); };
     list.appendChild(b);
   });
   if(!list.children.length){
     list.innerHTML=`<div class="cell" style="color:var(--label2);cursor:default;">該当する駅がありません</div>`;
   }
 }
-function setStation(target,name){
-  if(target==="from"){ fromSt=name; } else { toSt=name; }
+function stationLabelHTML(st){
+  const rj=romajiOf(st);
+  return `${st.name}${rj?`<span class="st-romaji">${rj}</span>`:""}`;
+}
+function setStation(target,idx){
+  if(target==="from"){ fromIdx=idx; } else { toIdx=idx; }
   const el=document.getElementById(target+"-label");
-  el.textContent=name; el.classList.remove("placeholder");
+  el.innerHTML=stationLabelHTML(STS[idx]); el.classList.remove("placeholder");
   updateSearchBtn();
 }
 function swapStations(e){
   e.stopPropagation();
-  const f=fromSt, t=toSt;
-  fromSt=t; toSt=f;
+  const f=fromIdx, t=toIdx;
+  fromIdx=t; toIdx=f;
   const fl=document.getElementById("from-label"), tl=document.getElementById("to-label");
-  fl.textContent=fromSt||"出発駅"; fl.classList.toggle("placeholder",!fromSt);
-  tl.textContent=toSt||"到着駅"; tl.classList.toggle("placeholder",!toSt);
+  fl.innerHTML=fromIdx!==null?stationLabelHTML(STS[fromIdx]):"出発駅"; fl.classList.toggle("placeholder",fromIdx===null);
+  tl.innerHTML=toIdx!==null?stationLabelHTML(STS[toIdx]):"到着駅"; tl.classList.toggle("placeholder",toIdx===null);
   updateSearchBtn();
 }
-function quickSet(f,t){ setStation("from",f); setStation("to",t); }
+function quickSet(a,b){ setStation("from",a); setStation("to",b); }
 function updateSearchBtn(){
-  document.getElementById("search-btn").disabled = !(fromSt&&toSt&&fromSt!==toSt);
+  document.getElementById("search-btn").disabled = !(fromIdx!==null&&toIdx!==null&&fromIdx!==toIdx);
 }
 
 /* =========================================================
    search & results
 ========================================================= */
+function viaHTML(via, from, to){
+  const tokens=[{sta:from}, ...via, {sta:to}];
+  return tokens.map(t=> t.sta
+    ? `<span class="via-sta">${t.sta}</span>`
+    : `<span class="line-badge" style="background:${t.color};">${t.sym}</span><span class="via-line">${t.name}</span>`
+  ).join(`<span class="via-arrow"> → </span>`);
+}
+function viaText(via, from, to){
+  const tokens=[{sta:from}, ...via, {sta:to}];
+  return tokens.map(t=> t.sta ? t.sta : `[${t.sym}]${t.name}`).join(" → ");
+}
+
 function doSearch(){
-  const key=fromSt+">"+toSt;
-  const routes=ROUTES[key];
-  if(!routes){
-    showAlert("未対応の区間です","このプロトタイプでは「対応区間の例」の4区間のみ運賃データを収録しています。",[{label:"OK",bold:true}]);
+  currentRoutes=buildRoutes(fromIdx,toIdx);
+  currentOD={from:STS[fromIdx].name, to:STS[toIdx].name,
+             fromR:romajiOf(STS[fromIdx]), toR:romajiOf(STS[toIdx])};
+  if(!currentRoutes.length){
+    showAlert("経路が見つかりません","この駅の組合せでは運賃を計算できませんでした。データが部分的な可能性があります。",[{label:"OK",bold:true}]);
     return;
   }
-  currentRoutes=routes; currentOD={from:fromSt,to:toSt};
-  document.getElementById("results-title").textContent=`${fromSt} → ${toSt}`;
+  document.getElementById("results-title").textContent=`${currentOD.from} → ${currentOD.to}`;
   renderResults();
   pushScreen("scr-results");
 }
@@ -649,13 +872,13 @@ function renderResults(){
 ========================================================= */
 function openDetail(i){
   const r=currentRoutes[i], card=activeCard();
-  const pt=r.cc*card.rate/100, net=r.cc-pt, diff=r.ic-net, good=diff>=0;
-  const body=document.getElementById("detail-body");
+  const pt=r.cc*card.rate/100, net=r.cc-pt, diff=r.ic-net, good=diff>0;
   const actual = r.cc<r.ic ? "クレカが最安" : (r.cc===r.ic ? "IC・クレカ同額" : "ICが最安");
   const netBest = diff>0 ? "クレカ" : (diff===0 ? "IC・クレカ（同額）" : "IC");
+  const body=document.getElementById("detail-body");
   body.innerHTML=`
     <div style="padding:4px 4px 12px 4px;">
-      <div style="font-size:22px;font-weight:700;">${currentOD.from} → ${currentOD.to}</div>
+      <div style="font-size:22px;font-weight:700;">${currentOD.from}${currentOD.fromR?`<span class="st-romaji-lg">${currentOD.fromR}</span>`:""} → ${currentOD.to}${currentOD.toR?`<span class="st-romaji-lg">${currentOD.toR}</span>`:""}</div>
       <div style="font-size:14px;color:var(--label);margin-top:4px;line-height:1.7;">${viaHTML(r.via, currentOD.from, currentOD.to)}</div>
     </div>
     <div class="verdict ${good?"good":"bad"}">
@@ -677,9 +900,9 @@ function openDetail(i){
         <div class="net-line">実質負担 <b>${fmtYen(net)}円</b></div>
       </div>
     </div>
-    <div class="section-header">クレカ乗車運賃の内訳（推定）</div>
+    <div class="section-header">クレカ乗車運賃の内訳</div>
     <div class="group">
-      ${r.legs.map(l=>`<div class="leg-cell"><span class="op-badge" style="background:${OP_COLORS[l.op]||"#8E8E93"};">${l.op}</span><span class="leg-sec">${l.sec}</span><span class="leg-fare">${l.fare}円</span></div>`).join("")}
+      ${r.legs.map(l=>`<div class="leg-cell"><span class="op-badge" style="background:${l.color};">${l.op}</span><span class="leg-sec">${l.sec}</span><span class="leg-fare">${l.fare<0?"−"+(-l.fare):l.fare}円</span></div>`).join("")}
     </div>
     <div class="footnote">${r.notes.map(n=>"・"+n).join("<br>")}</div>`;
   history.unshift({from:currentOD.from,to:currentOD.to,via:viaText(r.via, currentOD.from, currentOD.to),cc:r.cc,pt:pt,card:card.name});
@@ -712,7 +935,7 @@ function renderHistory(){
           <div class="hist-ptv">＋${fmtPt(h.pt)}pt</div>
         </div>
       </div>`).join("")+`</div>
-    <div class="footnote">履歴はこのプロトタイプではメモリ内にのみ保持され、リロードで消えます。</div>`;
+    <div class="footnote">履歴はメモリ内にのみ保持され、リロードで消えます。</div>`;
 }
 
 /* =========================================================
@@ -722,29 +945,25 @@ function renderCards(){
   const list=document.getElementById("card-list");
   list.innerHTML="";
   CARDS.forEach(c=>{
-    const sel=(customRate===null && selectedCardId===c.id);
+    const sel=(selectedCardId===c.id);
+    const rate=c.custom?customRate:c.rate;
     const b=document.createElement("button");
     b.className="cell";
     b.innerHTML=`<div class="card-icon" style="background:${c.grad};"></div>
-      <div style="flex:1;"><div>${c.name}</div><div style="font-size:12px;color:var(--label2);">タッチ決済乗車 ${c.rate}%還元</div></div>
+      <div style="flex:1;"><div>${c.name}</div><div style="font-size:12px;color:var(--label2);">${c.custom?`還元率を自分で設定（現在 ${rate}%）`:`タッチ決済乗車 ${rate}%還元`}</div></div>
       <div class="rate-badge">${sel?`<svg width="18" height="14" viewBox="0 0 18 14"><path d="M2 7.5 L7 12.5 L16 1.5" stroke="#007AFF" stroke-width="2.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>`:""}</div>`;
-    b.onclick=()=>{ selectedCardId=c.id; customRate=null; renderCards(); updateBanner(); };
+    b.onclick=()=>{
+      if(c.custom){ openCustomRate(); }
+      else{ selectedCardId=c.id; renderCards(); updateBanner(); }
+    };
     list.appendChild(b);
   });
-  if(customRate!==null){
-    const b=document.createElement("button");
-    b.className="cell";
-    b.innerHTML=`<div class="card-icon" style="background:linear-gradient(135deg,#3a3a3c,#6e6e73);"></div>
-      <div style="flex:1;"><div>カスタム設定</div><div style="font-size:12px;color:var(--label2);">還元率 ${customRate}%</div></div>
-      <div class="rate-badge"><svg width="18" height="14" viewBox="0 0 18 14"><path d="M2 7.5 L7 12.5 L16 1.5" stroke="#007AFF" stroke-width="2.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></div>`;
-    list.appendChild(b);
-  }
 }
 function openCustomRate(){
-  showAlert("還元率を入力","このカードのタッチ決済乗車還元率（%）を入力してください。",
+  showAlert("還元率を入力","「その他のクレカ」のタッチ決済乗車還元率（%）を入力してください。",
     [{label:"キャンセル"},{label:"設定",bold:true,onTap:()=>{
       const v=parseFloat(document.getElementById("alert-input").value);
-      if(!isNaN(v)&&v>=0&&v<=100){ customRate=v; renderCards(); updateBanner(); }
+      if(!isNaN(v)&&v>=0&&v<=100){ customRate=v; selectedCardId="other"; renderCards(); updateBanner(); }
     }}], true);
 }
 function updateBanner(){
@@ -775,9 +994,7 @@ function showAlert(title,msg,btns,withInput){
   if(withInput) setTimeout(()=>input.focus(),100);
 }
 
-/* init */
-updateBanner();
-renderCards();
+boot();
 </script>
 </body>
 </html>
