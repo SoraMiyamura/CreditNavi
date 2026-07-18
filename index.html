@@ -138,7 +138,7 @@
   .via-sta{font-weight:600;}
   .via-arrow{color:var(--label2);font-weight:300;}
   .rc-fares{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;}
-  .fare-pill{font-size:15px;padding:6px 11px;border-radius:7px;background:var(--bg);color:var(--label2);}
+  .fare-pill{font-size:15px;padding:6px 11px;border-radius:7px;background:var(--bg);color:var(--label2);white-space:nowrap;}
   .fare-pill b{color:var(--label);font-weight:600;}
   .fare-pill.cc{background:rgba(0,122,255,.12);color:var(--blue);}
   .fare-pill.cc b{color:var(--blue);}
@@ -150,8 +150,8 @@
   .fare-row{padding:13px 16px;position:relative;background:var(--card);}
   .fare-row:not(:last-child)::after{content:"";position:absolute;left:16px;right:0;bottom:0;height:0.5px;background:var(--sep);}
   .fare-row .fr-line{display:flex;align-items:baseline;justify-content:space-between;}
-  .fr-name{font-size:17px;color:var(--label);}
-  .fr-amount{font-size:20px;font-weight:600;color:var(--label);font-variant-numeric:tabular-nums;}
+  .fr-name{font-size:17px;color:var(--label);min-width:0;}
+  .fr-amount{font-size:20px;font-weight:600;color:var(--label);font-variant-numeric:tabular-nums;white-space:nowrap;flex-shrink:0;padding-left:10px;}
   .fare-row.cc-row{background:rgba(0,122,255,.06);}
   .fare-row.cc-row .fr-name{color:var(--blue);font-weight:600;}
   .fare-row.cc-row .fr-amount{color:var(--blue);}
@@ -171,8 +171,8 @@
   .leg-cell{display:flex;align-items:center;min-height:44px;padding:10px 16px;position:relative;background:var(--card);}
   .leg-cell:not(:last-child)::after{content:"";position:absolute;left:16px;right:0;bottom:0;height:0.5px;background:var(--sep);}
   .op-badge{font-size:11px;font-weight:600;color:#fff;border-radius:4px;padding:2px 6px;margin-right:10px;flex-shrink:0;}
-  .leg-sec{font-size:15px;color:var(--label);flex:1;}
-  .leg-fare{font-size:15px;color:var(--label2);font-variant-numeric:tabular-nums;}
+  .leg-sec{font-size:15px;color:var(--label);flex:1;min-width:0;}
+  .leg-fare{font-size:15px;color:var(--label2);font-variant-numeric:tabular-nums;white-space:nowrap;flex-shrink:0;padding-left:10px;}
   .tabbar{
     position:absolute;bottom:0;left:0;right:0;height:64px;z-index:500;
     background:rgba(249,249,249,.85);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
