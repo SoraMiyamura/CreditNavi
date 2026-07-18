@@ -274,6 +274,23 @@
   .hist-ptv{font-size:12px;color:var(--green);font-weight:600;}
   .card-icon{width:38px;height:25px;border-radius:4px;flex-shrink:0;margin-right:12px;}
   .rate-badge{margin-left:auto;font-size:14px;color:var(--label2);display:flex;align-items:center;gap:8px;}
+  .usage-card{background:var(--card);border-radius:12px;padding:16px;}
+  .usage-card-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
+  .usage-card-title{font-size:15px;font-weight:600;color:var(--label);letter-spacing:-0.2px;}
+  .usage-month-select{
+    border:none;background:rgba(118,118,128,.12);border-radius:8px;padding:6px 10px;
+    font-size:14px;color:var(--blue);font-family:inherit;font-weight:600;-webkit-appearance:none;
+  }
+  .usage-card-body{display:flex;align-items:flex-start;}
+  .usage-col-card{flex-shrink:0;width:60px;display:flex;flex-direction:column;align-items:center;}
+  .usage-col-cardicon{width:50px;height:33px;border-radius:6px;margin-bottom:6px;}
+  .usage-col-cardname{font-size:10.5px;color:var(--label2);text-align:center;line-height:1.3;}
+  .usage-values{flex:1;display:flex;justify-content:flex-end;gap:26px;}
+  .usage-col-label{font-size:12px;color:var(--label2);margin-bottom:5px;}
+  .usage-col-value{font-size:23px;font-weight:700;color:var(--label);font-variant-numeric:tabular-nums;letter-spacing:-0.3px;text-align:right;}
+  .usage-col-value.amt{color:var(--blue);}
+  .usage-col-value.pt{color:var(--green);}
+  .usage-col-sub{font-size:11.5px;color:var(--label2);margin-top:4px;font-weight:400;text-align:right;}
   .loader-overlay{
     position:absolute;inset:0;z-index:2000;background:var(--bg);
     display:flex;flex-direction:column;align-items:center;justify-content:center;
@@ -374,6 +391,8 @@
   <div class="screen" id="scr-cards">
     <div class="scroll" style="padding-top:0;">
       <div class="navbar-large"><div class="large-title">マイカード</div></div>
+      <div id="monthly-usage-card"></div>
+      <div class="footnote" id="monthly-usage-note"></div>
       <div class="section-header">ポイント計算に使用するカード</div>
       <div class="group" id="card-list"></div>
       <div class="footnote">還元率は例示です。各社キャンペーンの還元率・上限は変更される場合があります。獲得ポイントは「クレカ乗車運賃 × 還元率」で計算します。</div>
@@ -1071,6 +1090,7 @@ let currentTab=0;
 let currentDetailIndex=null;
 let selectedRidePayment=null, rideStage="main", rideDateMode="today", rideCustomDate="", pendingRideRouteIndex=null;
 let rideFilterMonth="", rideFilterPayment="";
+let monthlyUsageYm="";
 
 function activeCard(){
   const c=CARDS.find(x=>x.id===selectedCardId);
@@ -1085,7 +1105,42 @@ function ccPoints(r, card){
   return r.cc*base/100 + eligible*touch/100;
 }
 function fmtPt(x){ return (Math.round(x*10)/10).toLocaleString("ja-JP",{maximumFractionDigits:1}); }
+/* JCB CARD S・Wは、マイカード画面に表示する獲得ポイントを小数点以下切り捨てで表示する */
+const POINT_TRUNCATE_CARDS=new Set(["jcbs","jcbw"]);
+function fmtPtForCard(cardId, x){
+  return POINT_TRUNCATE_CARDS.has(cardId) ? Math.floor(x).toLocaleString("ja-JP") : fmtPt(x);
+}
 function fmtYen(x){ return x.toLocaleString("ja-JP",{maximumFractionDigits:1}); }
+/* 三井住友カード(NL)・Oliveは「都度」ではなく「毎月1日～月末の合計利用額」に対して200円単位で計算される。
+   基本還元＝合計利用額を200円単位に切り捨てた額×0.5%
+   タッチ決済上乗せ＝（合計利用額－東武運賃合計）を200円単位に切り捨てた額×6.5%（Oliveは7.5%）
+   例: 月合計700円・うち東武200円 → 基本= floor(700/200)*200=600円×0.5%=3pt、
+       上乗せ= floor((700-200)/200)*200=400円×6.5%(or7.5%)=26pt(or30pt) */
+const MONTHLY_AGGREGATE_CARDS=new Set(["smccnl","olive"]);
+function roundDownTo200(yen){ return Math.floor(Math.max(0,yen)/200)*200; }
+function monthlyAggregatePoints(cardId, totalAmount, totalTobu){
+  const cd=CARDS.find(c=>c.id===cardId);
+  if(!cd) return 0;
+  const baseEligible=roundDownTo200(totalAmount);
+  const touchEligible=roundDownTo200(totalAmount-totalTobu);
+  return baseEligible*(cd.base||0)/100 + touchEligible*(cd.touch||0)/100;
+}
+function currentYearMonth(){ return todayISO().slice(0,7); }
+/* 指定カード・指定年月（既定=今月）の乗車履歴から、クレカ乗車の利用額・獲得ポイントを集計 */
+function monthlyCardUsage(cardId, ym){
+  ym = ym || currentYearMonth();
+  let totalAmount=0, totalTobu=0, perRidePoints=0, count=0;
+  rideHistory.forEach(h=>{
+    if(h.paymentKind!=="credit") return;
+    if(h.cardId!==cardId) return;
+    if(!h.date || h.date.slice(0,7)!==ym) return;
+    totalAmount+=h.amount; totalTobu+=(h.tobuFare||0); count++;
+    if(typeof h.points==="number") perRidePoints+=h.points;
+  });
+  const isMonthly=MONTHLY_AGGREGATE_CARDS.has(cardId);
+  const points = isMonthly ? monthlyAggregatePoints(cardId, totalAmount, totalTobu) : perRidePoints;
+  return {totalAmount, totalTobu, points, count, isMonthly};
+}
 
 /* =========================================================
    navigation
@@ -1250,6 +1305,9 @@ function openDetail(i){
         </div>
         <div class="net-line">実質負担 <b>${fmtYen(c.icNet)}円</b></div>`;
   let notes = ccBlock ? [ccBlock.msg, ...r.notes] : [...r.notes];
+  if(!ccBlock && MONTHLY_AGGREGATE_CARDS.has(card.id)){
+    notes = ["ポイント獲得量は、毎月1日～月末までの合計利用額に対し200円単位で計算するため、実際の付与ポイント数とは異なる場合があります。正確なポイント数は、マイカードの画面からご確認ください。", ...notes];
+  }
   if(!ccBlock && r.tobuFare>0 && card.touch>0){
     notes = [`東武鉄道はタッチ決済乗車の上乗せ還元（+${card.touch}%）の対象外です。東武区間 ${r.tobuFare}円 は基本還元 ${card.base}% のみ、残り ${effR.cc-r.tobuFare}円 に上乗せを適用して計算しています。`, ...notes];
   }
@@ -1473,20 +1531,22 @@ function rideCheckSvg(on){
   return on ? `<svg width="18" height="14" viewBox="0 0 18 14"><path d="M2 7.5 L7 12.5 L16 1.5" stroke="#007AFF" stroke-width="2.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>` : "";
 }
 /* key: "default"（検索時のカード） / "ic" / "cash" / "card:<id>"（その他で選んだ個別カード）
-   カード（クレカ）決済の場合のみ、本日の1日上限サービス適用後の実質金額を返す（IC・現金は対象外）。 */
+   カード（クレカ）決済の場合のみ、本日の1日上限サービス適用後の実質金額を返す（IC・現金は対象外）。
+   route: 実際に充当された経路オブジェクト（クレカ=1日上限適用後、IC・現金=元のr）。cardId: 使用したCARDSのid（クレカのみ）。 */
 function resolveRidePayment(key, r){
-  if(key==="ic") return {label:"交通系IC", amount:r.ic, kind:"ic"};
-  if(key==="cash") return {label:"現金（きっぷ）", amount:r.cash, kind:"cash"};
+  if(key==="ic") return {label:"交通系IC", amount:r.ic, kind:"ic", cardId:null, route:r};
+  if(key==="cash") return {label:"現金（きっぷ）", amount:r.cash, kind:"cash", cardId:null, route:r};
   const effR=effectiveRouteForToday(r);
   if(key==="default"){
     const card=activeCard();
-    return {label: card.custom?`その他のクレカ（${customRate}%）`:card.name, amount:effR.cc, kind:"credit"};
+    return {label: card.custom?`その他のクレカ（${customRate}%）`:card.name, amount:effR.cc, kind:"credit", cardId:selectedCardId, route:effR};
   }
   if(key.indexOf("card:")===0){
-    const cd=CARDS.find(x=>x.id===key.slice(5));
-    return {label: cd ? (cd.custom?`その他のクレカ（${customRate}%）`:cd.name) : "クレジットカード", amount:effR.cc, kind:"credit"};
+    const cid=key.slice(5);
+    const cd=CARDS.find(x=>x.id===cid);
+    return {label: cd ? (cd.custom?`その他のクレカ（${customRate}%）`:cd.name) : "クレジットカード", amount:effR.cc, kind:"credit", cardId:cid, route:effR};
   }
-  return {label:"", amount:0, kind:"credit"};
+  return {label:"", amount:0, kind:"credit", cardId:null, route:effR};
 }
 function openAddRide(){
   if(currentDetailIndex===null || !currentRoutes[currentDetailIndex] || !currentOD) return;
@@ -1582,14 +1642,26 @@ function setRideDateMode(mode){
 function saveRide(){
   const od=currentOD, r=currentRoutes[pendingRideRouteIndex];
   if(!od||!r) return;
-  const {label:paymentLabel, amount, kind:paymentKind} = resolveRidePayment(selectedRidePayment, r);
+  const {label:paymentLabel, amount, kind:paymentKind, cardId, route:effRouteUsed} = resolveRidePayment(selectedRidePayment, r);
   const dateInput=document.getElementById("ride-date-input");
   const date = rideDateMode==="today" ? todayISO() : ((dateInput&&dateInput.value)||rideCustomDate||todayISO());
   /* クレカ決済の場合のみ、実際に充当された（1日上限適用後の）社局別金額を記録し、以後の上限判定に使う */
-  const capUsage = paymentKind==="credit" ? capUsageForRoute(effectiveRouteForToday(r)) : null;
+  const capUsage = paymentKind==="credit" ? capUsageForRoute(effRouteUsed) : null;
+  /* 東武運賃（月次のポイント計算用。1日上限の対象外なので元のrの値をそのまま使う）と、
+     都度計算カード（三井住友NL・Olive以外）の場合のみ、この乗車単体の獲得ポイントを記録する。
+     三井住友NL・Oliveは月合計で計算するため、ここではポイントを記録せずmonthlyCardUsage()で都度集計する。 */
+  let tobuFareUsed=0, points=null;
+  if(paymentKind==="credit"){
+    tobuFareUsed = r.tobuFare||0;
+    if(!MONTHLY_AGGREGATE_CARDS.has(cardId)){
+      const cd=CARDS.find(x=>x.id===cardId);
+      const useCard = cd ? (cd.custom?{...cd,base:customRate,touch:0}:cd) : null;
+      points = useCard ? ccPoints(effRouteUsed, useCard) : 0;
+    }
+  }
   rideHistory.unshift({
     from:od.from, to:od.to, via:viaText(r.via, od.from, od.to),
-    payment:paymentLabel, amount, date, paymentKind, capUsage, recordedAt:Date.now()
+    payment:paymentLabel, amount, date, paymentKind, cardId, tobuFare:tobuFareUsed, points, capUsage, recordedAt:Date.now()
   });
   if(rideHistory.length>500) rideHistory.pop();
   saveRideHistory();
@@ -1640,6 +1712,63 @@ function renderCards(){
     list.appendChild(b);
   });
   renderIcRate();
+  renderMonthlyUsage();
+}
+/* マイカード画面: 選択中のカードの「今月のクレカ乗車利用額・獲得ポイント」を乗車履歴から集計して表示。
+   三井住友カード(NL)・Oliveは月合計200円単位の正確な計算、それ以外は都度計算の合計（目安）。 */
+/* 表示中の「今月のご利用状況」の対象年月（既定=今月）。カード画面のセレクトで過去12か月分から選べる。 */
+function monthOptionsList(){
+  const opts=[];
+  const d=new Date();
+  d.setDate(1);
+  for(let i=0;i<12;i++){
+    const y=d.getFullYear(), m=d.getMonth()+1;
+    const p=n=>String(n).padStart(2,"0");
+    opts.push({ym:`${y}-${p(m)}`, label: y===new Date().getFullYear() ? `${m}月` : `${y}年${m}月`});
+    d.setMonth(d.getMonth()-1);
+  }
+  return opts;
+}
+function setMonthlyUsageYm(v){ monthlyUsageYm=v; renderMonthlyUsage(); }
+function renderMonthlyUsage(){
+  const wrap=document.getElementById("monthly-usage-card");
+  const note=document.getElementById("monthly-usage-note");
+  if(!wrap||!note) return;
+  const card=activeCard();
+  const cardName=card.custom?"その他のクレカ":card.name;
+  const months=monthOptionsList();
+  if(!months.some(m=>m.ym===monthlyUsageYm)) monthlyUsageYm=currentYearMonth();
+  const u=monthlyCardUsage(card.id, monthlyUsageYm);
+  wrap.innerHTML=`
+    <div class="usage-card">
+      <div class="usage-card-head">
+        <div class="usage-card-title">${cardName}のご利用状況</div>
+        <select class="usage-month-select" onchange="setMonthlyUsageYm(this.value)">
+          ${months.map(m=>`<option value="${m.ym}"${monthlyUsageYm===m.ym?" selected":""}>${m.label}</option>`).join("")}
+        </select>
+      </div>
+      <div class="usage-card-body">
+        <div class="usage-col-card">
+          <div class="usage-col-cardicon" style="background:${card.grad};"></div>
+          <div class="usage-col-cardname">${cardName}</div>
+        </div>
+        <div class="usage-values">
+          <div>
+            <div class="usage-col-label">クレカ乗車利用額</div>
+            <div class="usage-col-value amt">${Math.round(u.totalAmount).toLocaleString("ja-JP")}円</div>
+            <div class="usage-col-sub">乗車${u.count}回${u.totalTobu>0?`（うち東武${Math.round(u.totalTobu).toLocaleString("ja-JP")}円）`:""}</div>
+          </div>
+          <div>
+            <div class="usage-col-label">獲得ポイント</div>
+            <div class="usage-col-value pt">${fmtPtForCard(card.id, u.points)}pt</div>
+            <div class="usage-col-sub">見込み</div>
+          </div>
+        </div>
+      </div>
+    </div>`;
+  note.textContent = u.isMonthly
+    ? "三井住友カード(NL)・Oliveは、毎月1日～月末の合計利用額に対して200円単位で計算されるため、この画面の数値が実際の付与ポイントに最も近い見込みです。乗車履歴に記録した内容をもとに計算しています。"
+    : "このカードは乗車ごとの運賃×還元率の合計で表示しています（乗車履歴に記録した内容が対象）。";
 }
 function openCustomRate(){
   document.getElementById("alert-input").step="0.1";
