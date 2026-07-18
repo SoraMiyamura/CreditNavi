@@ -277,6 +277,8 @@
   .fare-pill.blocked b{color:var(--red);}
   .ic-net-line{font-size:12px;color:var(--label2);margin-top:5px;}
   .ic-net-line b{color:var(--label);font-weight:600;}
+  .cap-line{display:flex;align-items:center;gap:6px;margin-top:6px;font-size:12px;color:#b36a00;font-weight:600;}
+  .cap-line svg{flex-shrink:0;}
   .warn-box{
     display:flex;align-items:flex-start;gap:9px;
     background:#FFF8E1;border:1px solid #FFE082;border-radius:10px;
@@ -607,7 +609,7 @@ function buildRoutesTX(i,j){
   const b=DATA.bands[bi];
   return [{
     via:[{sym:LINE.symbol,name:LINE.name,color:LINE.color}],
-    cash:b.cash, ic:b.ic, cc:b.cash, tobuFare:0,
+    cash:b.cash, ic:b.ic, cc:b.cash, tobuFare:0, opKeys:["mir"],
     legs:[{op:"つくばエクスプレス",color:LINE.color,sec:`${STS[i].name} → ${STS[j].name}`,fare:b.cash}],
     notes:[
       "クレカ乗車運賃は現金（きっぷ）運賃と同額です。",
@@ -682,15 +684,24 @@ function buildRoutesBundle(i,j){
   return out;
 }
 
+/* クレカ乗車の区間運賃: 横浜市営地下鉄はIC運賃（1円単位）、他はきっぷ運賃（10円単位） */
+function ccFareOf(op, v){ return op==="yokohamamunicipal" ? v[1] : v[0]; }
+/* 1日上限サービス（タッチ決済）: 事業者ごとの上限額 */
+const DAILY_CAP={
+  yokohamamunicipal:{name:"横浜市営地下鉄", cap:740},
+  yurikamome:{name:"ゆりかもめ", cap:820}
+};
+
 function single(op,v,f,t){
   const o=opStyle(op);
+  const ccf=ccFareOf(op,v);
   const notes=["クレカ乗車運賃は10円単位きっぷ運賃と同額です（同一社局内・割引なし）。"];
   if(f.ops.length>1&&t.ops.length>1)
     notes.push("出発・到着とも複数社局に存在する駅のため、実際の改札処理では実乗車経路に関わらず最安経路でみなし計算される可能性があります。");
-  return {kind:"single", key:"s|"+op, opFrom:op, opTo:op, tobuFare:(op==="tobu"?v[0]:0),
+  return {kind:"single", key:"s|"+op, opFrom:op, opTo:op, opKeys:[op], tobuFare:(op==="tobu"?v[0]:0),
     via:[{sym:o.sym,name:o.name,color:o.color}],
-    cash:v[0], ic:v[1], cc:v[0],
-    legs:[{op:o.name,color:o.color,sec:`${f.name} → ${t.name}`,fare:v[0]}],
+    cash:v[0], ic:v[1], cc:ccf,
+    legs:[{op:o.name,color:o.color,sec:`${f.name} → ${t.name}`,fare:ccf}],
     notes};
 }
 
@@ -699,9 +710,10 @@ function cross(opA,opB,a,b,ja,jb,f,t){
   const d=discountsFor(opA,opB,f.slug,t.slug,ja,jb);
   const jNameA=LUS[opA].name(ja), jNameB=LUS[opB].name(jb);
   const jDisp=jNameA===jNameB?jNameA:`${jNameA}（${jNameB}）`;
+  const ccfA=ccFareOf(opA,a), ccfB=ccFareOf(opB,b);
   const legs=[
-    {op:A.name,color:A.color,sec:`${f.name} → ${jNameA}`,fare:a[0]},
-    {op:B.name,color:B.color,sec:`${jNameB} → ${t.name}`,fare:b[0]}
+    {op:A.name,color:A.color,sec:`${f.name} → ${jNameA}`,fare:ccfA},
+    {op:B.name,color:B.color,sec:`${jNameB} → ${t.name}`,fare:ccfB}
   ];
   const notes=[];
   if(d.cc>0){
@@ -719,9 +731,9 @@ function cross(opA,opB,a,b,ja,jb,f,t){
   }
   notes.push(`接続駅は運賃が最安となる ${jDisp} を自動選択しています。`);
   notes.push("IC運賃は各社IC運賃の合算"+(d.ic>0?`−${d.ic}円`:"")+"による推定値です。実際のみなし計算と異なる場合があります。");
-  return {kind:"cross", key:`x|${opA}|${opB}|${ja}|${jb}`, opFrom:opA, opTo:opB, tobuFare:((opA==="tobu"?a[0]:0)+(opB==="tobu"?b[0]:0)),
+  return {kind:"cross", key:`x|${opA}|${opB}|${ja}|${jb}`, opFrom:opA, opTo:opB, opKeys:[opA,opB], tobuFare:((opA==="tobu"?a[0]:0)+(opB==="tobu"?b[0]:0)),
     via:[{sym:A.sym,name:A.name,color:A.color},{sta:jDisp},{sym:B.sym,name:B.name,color:B.color}],
-    cash:a[0]+b[0]-d.cash, ic:a[1]+b[1]-d.ic, cc:a[0]+b[0]-d.cc,
+    cash:a[0]+b[0]-d.cash, ic:a[1]+b[1]-d.ic, cc:ccfA+ccfB-d.cc,
     legs, notes};
 }
 
@@ -794,7 +806,7 @@ function dijkstraPath(f,t,rel,xfer,metric){
 
 function routeFromLegs(legList){
   if(!legList||!legList.length) return null;
-  let cashSum=0, icSum=0, cashDisc=0, icDisc=0, ccDisc=0, tobuSum=0;
+  let cashSum=0, icSum=0, ccSum=0, cashDisc=0, icDisc=0, ccDisc=0, tobuSum=0;
   const via=[], disp=[], notes=[];
   let hasCcDisc=false, hasNonCcDisc=false;
   for(let k=0;k<legList.length;k++){
@@ -802,6 +814,7 @@ function routeFromLegs(legList){
     const a=LUS[L.op].get(L.from,L.to);
     if(!a||a[0]<=0) return null;
     cashSum+=a[0]; icSum+=a[1];
+    const ccf=ccFareOf(L.op,a); ccSum+=ccf;
     if(L.op==="tobu") tobuSum+=a[0];
     const fromName=LUS[L.op].name(L.from), toName=LUS[L.op].name(L.to);
     if(k>0){
@@ -814,7 +827,7 @@ function routeFromLegs(legList){
       if(dsc.cash>dsc.cc||dsc.ic>dsc.cc) hasNonCcDisc=true;
     }
     via.push({sym:st.sym,name:st.name,color:st.color});
-    disp.push({op:st.name,color:st.color,sec:`${fromName} → ${toName}`,fare:a[0]});
+    disp.push({op:st.name,color:st.color,sec:`${fromName} → ${toName}`,fare:ccf});
   }
   notes.push(`${legList.length}社局を乗り継ぐ経路です。接続駅は運賃が最安となる駅を自動選択しています。`);
   if(hasCcDisc) notes.push("メトロ⇔都営の連絡割引（−70円）はきっぷ・IC・クレカのすべてに適用されます。");
@@ -823,7 +836,8 @@ function routeFromLegs(legList){
   return {kind:"multi",
     key:"m|"+legList.map(L=>L.op+":"+L.from+">"+L.to).join("|"),
     opFrom:legList[0].op, opTo:legList[legList.length-1].op,
-    via, cash:cashSum-cashDisc, ic:icSum-icDisc, cc:cashSum-ccDisc, tobuFare:tobuSum,
+    opKeys:[...new Set(legList.map(L=>L.op))],
+    via, cash:cashSum-cashDisc, ic:icSum-icDisc, cc:ccSum-ccDisc, tobuFare:tobuSum,
     legs:disp, notes};
 }
 
@@ -1074,6 +1088,8 @@ function openDetail(i){
   if(!ccBlock && r.tobuFare>0 && card.touch>0){
     notes = [`東武鉄道はタッチ決済乗車の上乗せ還元（+${card.touch}%）の対象外です。東武区間 ${r.tobuFare}円 は基本還元 ${card.base}% のみ、残り ${r.cc-r.tobuFare}円 に上乗せを適用して計算しています。`, ...notes];
   }
+  const capList=(r.opKeys||[]).filter(op=>DAILY_CAP[op]).map(op=>DAILY_CAP[op]);
+  const capHtml=capList.map(cp=>`<div class="cap-line"><svg width="13" height="13" viewBox="0 0 13 13"><circle cx="6.5" cy="6.5" r="6" fill="#FF9500" opacity=".18"/><path d="M6.5 3 L6.5 7 M6.5 9 L6.5 9.4" stroke="#c47a00" stroke-width="1.5" stroke-linecap="round"/></svg>1日上限サービスあり：${cp.name} ${cp.cap}円</div>`).join("");
   const ccRow = ccBlock
     ? `<div class="fare-row cc-blocked">
         <div class="fr-line"><div class="fr-name">クレカ乗車</div><div class="fr-amount cc-unavail">ご利用できません</div></div>
@@ -1085,6 +1101,7 @@ function openDetail(i){
           <span class="pt-sub" style="margin-right:4px;">（${card.name}）</span><svg width="14" height="14" viewBox="0 0 14 14"><circle cx="7" cy="7" r="6.5" fill="#34C759"/><path d="M7 3.5 L7 10.5 M3.5 7 L10.5 7" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/></svg>${fmtPt(c.pt)}pt 獲得
         </div>
         <div class="net-line">実質負担 <b>${fmtYen(c.ccNet)}円</b></div>
+        ${capHtml}
       </div>`;
   const arriveBlk = CC_DEPART_BLOCK.find(b=> currentOD.toSt && currentOD.toSt.slug===b.slug && currentOD.toSt.ops && currentOD.toSt.ops.includes(b.op));
   const arriveWarn = arriveBlk ? `
