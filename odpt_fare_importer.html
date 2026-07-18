@@ -1,0 +1,772 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ODPT運賃データ変換インポータ</title>
+<style>
+  :root{
+    --blue:#007AFF; --green:#34C759; --red:#FF3B30; --orange:#FF9500;
+    --gray:#8E8E93; --gray3:#C7C7CC;
+    --bg:#F2F2F7; --card:#FFFFFF;
+    --sep:rgba(60,60,67,0.29);
+    --label:#000; --label2:rgba(60,60,67,0.6);
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{
+    background:var(--bg);
+    font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Hiragino Sans","Hiragino Kaku Gothic ProN",sans-serif;
+    letter-spacing:-0.3px;color:var(--label);
+  }
+  .wrap{max-width:760px;margin:0 auto;padding:28px 16px 80px 16px;}
+  h1{font-size:28px;font-weight:700;margin-bottom:4px;}
+  .subtitle{font-size:13px;color:var(--label2);margin-bottom:20px;line-height:1.5;}
+  .section-header{font-size:13px;color:var(--label2);padding:22px 16px 7px 4px;}
+  .card{background:var(--card);border-radius:12px;overflow:hidden;}
+
+  /* drop zone */
+  .drop{
+    border:2px dashed var(--gray3);border-radius:12px;background:var(--card);
+    padding:36px 20px;text-align:center;cursor:pointer;transition:all .15s;
+  }
+  .drop.over{border-color:var(--blue);background:rgba(0,122,255,.06);}
+  .drop .d-title{font-size:16px;font-weight:600;margin-bottom:4px;}
+  .drop .d-sub{font-size:13px;color:var(--label2);line-height:1.5;}
+  .drop input{display:none;}
+
+  .filelist{margin-top:10px;}
+  .file-row{
+    display:flex;align-items:center;gap:10px;background:var(--card);
+    border-radius:10px;padding:10px 14px;margin-bottom:6px;font-size:14px;
+  }
+  .file-row .fname{flex:1;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .file-row .fmeta{color:var(--label2);font-size:12px;white-space:nowrap;}
+  .badge{font-size:11px;font-weight:700;border-radius:5px;padding:2px 7px;color:#fff;}
+  .badge.fare{background:var(--blue);}
+  .badge.station{background:var(--green);}
+  .badge.unknown{background:var(--gray);}
+  .rm{border:none;background:none;color:var(--red);cursor:pointer;font-size:16px;padding:2px 6px;font-family:inherit;}
+
+  .primary-btn{
+    display:block;width:100%;margin-top:16px;background:var(--blue);color:#fff;
+    font-size:16px;font-weight:600;border:none;border-radius:12px;padding:14px;
+    cursor:pointer;font-family:inherit;transition:opacity .15s;
+  }
+  .primary-btn:active{opacity:.4;}
+  .primary-btn:disabled{background:var(--gray3);cursor:default;}
+
+  /* results */
+  .op-card{background:var(--card);border-radius:12px;padding:16px;margin-bottom:14px;}
+  .op-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+  .op-name{font-size:17px;font-weight:700;flex:1;}
+  .dl-btn{
+    background:rgba(0,122,255,.12);color:var(--blue);border:none;border-radius:9px;
+    padding:8px 14px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;
+  }
+  .dl-btn:active{opacity:.4;}
+  .stats{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;}
+  .stat{
+    background:var(--bg);border-radius:8px;padding:7px 11px;font-size:12px;color:var(--label2);
+  }
+  .stat b{color:var(--label);font-size:14px;display:block;font-variant-numeric:tabular-nums;}
+  .check{display:flex;align-items:center;gap:7px;font-size:13px;margin-top:7px;}
+  .check .ok{color:var(--green);font-weight:600;}
+  .check .ng{color:var(--orange);font-weight:600;}
+  details{margin-top:10px;}
+  summary{font-size:13px;color:var(--blue);cursor:pointer;}
+  pre{
+    background:var(--bg);border-radius:8px;padding:10px 12px;font-size:11.5px;
+    overflow-x:auto;margin-top:8px;line-height:1.6;
+    font-family:ui-monospace,"SF Mono",Consolas,monospace;
+  }
+  .footnote{font-size:12px;color:var(--label2);padding:10px 4px 0 4px;line-height:1.5;}
+  .spinner{display:none;text-align:center;padding:20px;color:var(--label2);font-size:14px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>ODPT運賃データ変換インポータ</h1>
+  <div class="subtitle">
+    ODPTの odpt:RailwayFare JSON をドラッグ＆ドロップすると、事業者ごとに検証して
+    運賃ナビ用の fare_&lt;operator&gt;.json に変換します。すべてブラウザ内で処理され、外部送信はありません。
+  </div>
+
+  <label class="drop" id="drop">
+    <div class="d-title">ここにJSONファイルをドロップ</div>
+    <div class="d-sub">またはクリックして選択（複数可）<br>
+      RailwayFare のJSONに加え、odpt:Station のJSONを入れると日本語駅名を自動付与します<br>
+      既存の fare.json を入れると「土台」として読み込み、新会社の運賃を追記統合します<br>
+      ※ZIPでダウンロードした場合は、先にZIPを展開してから入れてください</div>
+    <input type="file" id="file-input" multiple>
+  </label>
+
+  <div class="filelist" id="filelist"></div>
+
+  <details style="margin-top:16px;background:var(--card);border-radius:12px;padding:0 16px;">
+    <summary style="padding:13px 0;font-size:15px;font-weight:600;">同一駅グループの設定（編集できます）</summary>
+    <textarea id="groups-input" spellcheck="false" style="width:100%;height:180px;border:0.5px solid var(--gray3);border-radius:8px;padding:10px;font-size:12.5px;font-family:ui-monospace,'SF Mono',Consolas,monospace;line-height:1.6;margin-bottom:14px;resize:vertical;outline:none;"></textarea>
+    <div class="footnote" style="padding:0 0 14px 0;">乗換可能かつ運賃計算が通算される「同一駅扱い」のグループです。1行1グループ、書式は「metro:Korakuen + toei:Kasuga」。スラッグは変換結果の駅名（ローマ字）に対応します。</div>
+  </details>
+
+  <button class="primary-btn" id="run-btn" disabled onclick="run()">変換を実行</button>
+  <div class="spinner" id="spinner">変換中…</div>
+
+  <div id="results"></div>
+  <div class="footnote">
+    検証項目: ①きっぷ運賃の10円単位 ②きっぷ＝IC切り上げ ③運賃の対称性（A→B＝B→A）
+    ④路線修飾駅IDの名寄せ矛盾。例外はレポートに列挙されます（例: 北千住⇔押上の特定運賃）。
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   file management
+============================================================ */
+const OPERATOR_NAMES = {
+  TokyoMetro:"東京地下鉄（東京メトロ）", Toei:"東京都交通局（都営地下鉄）",
+  MIR:"首都圏新都市鉄道（つくばエクスプレス）",
+  Tokyu:"東急電鉄", Tobu:"東武鉄道", Seibu:"西武鉄道",
+  Keio:"京王電鉄", Keikyu:"京浜急行電鉄", Sotetsu:"相模鉄道",
+  Odakyu:"小田急電鉄", MinatomiraiRailway:"横浜高速鉄道",
+  YokohamaMunicipal:"横浜市交通局（横浜市営地下鉄）", Yurikamome:"ゆりかもめ"
+};
+let files=[]; // {name, size, kind, records}
+let converted={}; // operator → 変換済み出力オブジェクト
+let extraOperators=[]; // fare_tx.json 等、既存フォーマットのパススルー
+let baseFare=null; // 既存fare.json（土台）。読み込むとoperators/stationGroups/discounts等を保持したまま追記統合する
+
+/* ============================================================
+   駅名辞書（スラッグ→日本語）: 東京メトロ＋都営（地下鉄・都電・舎人ライナー）内蔵
+   照合は小文字化して行うため、大文字小文字の揺れは吸収される
+============================================================ */
+const NAMES_JA_RAW={
+/* --- 東京メトロ --- */
+Asakusa:"浅草",Tawaramachi:"田原町",Inaricho:"稲荷町",Ueno:"上野",UenoHirokoji:"上野広小路",Suehirocho:"末広町",Kanda:"神田",Mitsukoshimae:"三越前",Nihombashi:"日本橋",Kyobashi:"京橋",Ginza:"銀座",Shimbashi:"新橋",Toranomon:"虎ノ門",TameikeSanno:"溜池山王",AkasakaMitsuke:"赤坂見附",AoyamaItchome:"青山一丁目",Gaiemmae:"外苑前",Omotesando:"表参道",Shibuya:"渋谷",
+Ikebukuro:"池袋",ShinOtsuka:"新大塚",Myogadani:"茗荷谷",Korakuen:"後楽園",HongoSanchome:"本郷三丁目",Ochanomizu:"御茶ノ水",Awajicho:"淡路町",Otemachi:"大手町",Tokyo:"東京",Kasumigaseki:"霞ケ関",KokkaiGijidomae:"国会議事堂前",Yotsuya:"四ツ谷",YotsuyaSanchome:"四谷三丁目",ShinjukuGyoemmae:"新宿御苑前",ShinjukuSanchome:"新宿三丁目",Shinjuku:"新宿",NishiShinjuku:"西新宿",NakanoSakaue:"中野坂上",ShinNakano:"新中野",HigashiKoenji:"東高円寺",ShinKoenji:"新高円寺",MinamiAsagaya:"南阿佐ケ谷",Ogikubo:"荻窪",NakanoShimbashi:"中野新橋",NakanoFujimicho:"中野富士見町",Honancho:"方南町",
+NakaMeguro:"中目黒",Ebisu:"恵比寿",Hiroo:"広尾",Roppongi:"六本木",Kamiyacho:"神谷町",ToranomonHills:"虎ノ門ヒルズ",Hibiya:"日比谷",HigashiGinza:"東銀座",Tsukiji:"築地",Hatchobori:"八丁堀",Kayabacho:"茅場町",Ningyocho:"人形町",Kodemmacho:"小伝馬町",Akihabara:"秋葉原",NakaOkachimachi:"仲御徒町",Iriya:"入谷",Minowa:"三ノ輪",MinamiSenju:"南千住",KitaSenju:"北千住",
+Nakano:"中野",Ochiai:"落合",Takadanobaba:"高田馬場",Waseda:"早稲田",Kagurazaka:"神楽坂",Iidabashi:"飯田橋",Kudanshita:"九段下",Takebashi:"竹橋",MonzenNakacho:"門前仲町",Kiba:"木場",Toyocho:"東陽町",MinamiSunamachi:"南砂町",NishiKasai:"西葛西",Kasai:"葛西",Urayasu:"浦安",MinamiGyotoku:"南行徳",Gyotoku:"行徳",Myoden:"妙典",BarakiNakayama:"原木中山",NishiFunabashi:"西船橋",
+YoyogiUehara:"代々木上原",YoyogiKoen:"代々木公園",MeijiJingumae:"明治神宮前",Nogizaka:"乃木坂",Akasaka:"赤坂",Nijubashimae:"二重橋前",ShinOchanomizu:"新御茶ノ水",Yushima:"湯島",Nezu:"根津",Sendagi:"千駄木",NishiNippori:"西日暮里",Machiya:"町屋",Ayase:"綾瀬",KitaAyase:"北綾瀬",
+Wakoshi:"和光市",ChikatetsuNarimasu:"地下鉄成増",ChikatetsuAkatsuka:"地下鉄赤塚",Heiwadai:"平和台",Hikawadai:"氷川台",KotakeMukaihara:"小竹向原",Senkawa:"千川",Kanamecho:"要町",HigashiIkebukuro:"東池袋",Gokokuji:"護国寺",Edogawabashi:"江戸川橋",Ichigaya:"市ケ谷",Kojimachi:"麹町",Nagatacho:"永田町",Sakuradamon:"桜田門",Yurakucho:"有楽町",GinzaItchome:"銀座一丁目",Shintomicho:"新富町",Tsukishima:"月島",Toyosu:"豊洲",Tatsumi:"辰巳",ShinKiba:"新木場",
+Hanzomon:"半蔵門",Jimbocho:"神保町",Suitengumae:"水天宮前",KiyosumiShirakawa:"清澄白河",Sumiyoshi:"住吉",Kinshicho:"錦糸町",Oshiage:"押上",
+Meguro:"目黒",Shirokanedai:"白金台",ShirokaneTakanawa:"白金高輪",AzabuJuban:"麻布十番",RoppongiItchome:"六本木一丁目",Todaimae:"東大前",HonKomagome:"本駒込",Komagome:"駒込",Nishigahara:"西ケ原",Oji:"王子",OjiKamiya:"王子神谷",Shimo:"志茂",AkabaneIwabuchi:"赤羽岩淵",
+Zoshigaya:"雑司が谷",NishiWaseda:"西早稲田",HigashiShinjuku:"東新宿",KitaSando:"北参道",
+/* --- 都営地下鉄 --- */
+NishiMagome:"西馬込",Magome:"馬込",Nakanobu:"中延",Togoshi:"戸越",Gotanda:"五反田",Takanawadai:"高輪台",Sengakuji:"泉岳寺",Mita:"三田",Daimon:"大門",Takaracho:"宝町",HigashiNihombashi:"東日本橋",Asakusabashi:"浅草橋",Kuramae:"蔵前",HonjoAzumabashi:"本所吾妻橋",
+Shibakoen:"芝公園",Onarimon:"御成門",Uchisaiwaicho:"内幸町",Suidobashi:"水道橋",Kasuga:"春日",Hakusan:"白山",Sengoku:"千石",Sugamo:"巣鴨",NishiSugamo:"西巣鴨",ShinItabashi:"新板橋",ItabashiKuyakushomae:"板橋区役所前",ItabashiHoncho:"板橋本町",MotoHasunuma:"本蓮沼",ShimuraSakaue:"志村坂上",ShimuraSanchome:"志村三丁目",Hasune:"蓮根",Nishidai:"西台",Takashimadaira:"高島平",ShinTakashimadaira:"新高島平",NishiTakashimadaira:"西高島平",
+Akebonobashi:"曙橋",Ogawamachi:"小川町",Iwamotocho:"岩本町",Bakuroyokoyama:"馬喰横山",Hamacho:"浜町",Morishita:"森下",Kikukawa:"菊川",NishiOjima:"西大島",Ojima:"大島",HigashiOjima:"東大島",Funabori:"船堀",Ichinoe:"一之江",Mizue:"瑞江",Shinozaki:"篠崎",Motoyawata:"本八幡",
+Tochomae:"都庁前",ShinjukuNishiguchi:"新宿西口",WakamatsuKawada:"若松河田",UshigomeYanagicho:"牛込柳町",UshigomeKagurazaka:"牛込神楽坂",UenoOkachimachi:"上野御徒町",ShinOkachimachi:"新御徒町",Ryogoku:"両国",Kachidoki:"勝どき",Tsukijishijo:"築地市場",Shiodome:"汐留",Akabanebashi:"赤羽橋",Kokuritsukyogijo:"国立競技場",Yoyogi:"代々木",NishiShinjukuGochome:"西新宿五丁目",HigashiNakano:"東中野",Nakai:"中井",OchiaiMinamiNagasaki:"落合南長崎",ShinEgota:"新江古田",Nerima:"練馬",Toshimaen:"豊島園",NerimaKasugacho:"練馬春日町",Hikarigaoka:"光が丘",
+/* --- 日暮里・舎人ライナー --- */
+Nippori:"日暮里",Akadoshogakkomae:"赤土小学校前",Kumanomae:"熊野前",AdachiOdai:"足立小台",OgiOhashi:"扇大橋",Koya:"高野",Kohoku:"江北",NishiaraiDaishiNishi:"西新井大師西",Yazaike:"谷在家",ToneriKoen:"舎人公園",Toneri:"舎人",MinumadaiShinsuikoen:"見沼代親水公園",
+/* --- 京王電鉄 --- */
+Bubaigawara:"分倍河原",ChitoseKarasuyama:"千歳烏山",Chofu:"調布",Daitabashi:"代田橋",Eifukucho:"永福町",Fuchu:"府中",FuchukeibaSeimommae:"府中競馬正門前",Fuda:"布田",Fujimigaoka:"富士見ヶ丘",HachimanYama:"八幡山",Hamadayama:"浜田山",Hashimoto:"橋本",Hatagaya:"幡ヶ谷",Hatsudai:"初台",Hazama:"狭間",HigashiFuchu:"東府中",HigashiMatsubara:"東松原",HirayamajoshiKoen:"平山城址公園",Ikenoue:"池ノ上",Inagi:"稲城",InokashiraKoen:"井の頭公園",KamiKitazawa:"上北沢",KeioHachioji:"京王八王子",KeioHorinouchi:"京王堀之内",KeioInadazutsumi:"京王稲田堤",KeioKatakura:"京王片倉",KeioNagayama:"京王永山",KeioTamaCenter:"京王多摩センター",KeioTamagawa:"京王多摩川",KeioYomiuriLand:"京王よみうりランド",Kichijoji:"吉祥寺",Kitano:"北野",Kokuryo:"国領",KomabaTodaimae:"駒場東大前",Kugayama:"久我山",Meidaimae:"明大前",Mejirodai:"めじろ台",MinamiOsawa:"南大沢",Minamidaira:"南平",Mitakadai:"三鷹台",Mogusaen:"百草園",Musashinodai:"武蔵野台",Naganuma:"長沼",Nakagawara:"中河原",NishiChofu:"西調布",NishiEifuku:"西永福",RokaKoen:"芦花公園",Sakurajosui:"桜上水",Sasazuka:"笹塚",SeisekiSakuragaoka:"聖蹟桜ヶ丘",Sengawa:"仙川",Shibasaki:"柴崎",ShimoKitazawa:"下北沢",ShimoTakaido:"下高井戸",Shindaita:"新代田",Shinsen:"神泉",Takahatafudo:"高幡不動",Takaido:"高井戸",Takao:"高尾",Takaosanguchi:"高尾山口",TamaDobutsukoen:"多摩動物公園",TamaReien:"多磨霊園",Tamasakai:"多摩境",Tobitakyu:"飛田給",Tsutsujigaoka:"つつじヶ丘",Wakabadai:"若葉台",Yamada:"山田",
+/* --- 西武鉄道 --- */
+Agano:"吾野",Akitsu:"秋津",AraiyakushiMae:"新井薬師前",Ashigakubo:"芦ヶ久保",Bushi:"仏子",Ekoda:"江古田",Fujimidai:"富士見台",Hagiyama:"萩山",Haijima:"拝島",HanaKoganei:"花小金井",Hanno:"飯能",Hibarigaoka:"ひばりヶ丘",HigashiAgano:"東吾野",HigashiFushimi:"東伏見",HigashiHanno:"東飯能",HigashiKurume:"東久留米",HigashiMurayama:"東村山",HigashiNagasaki:"東長崎",HigashiYamatoshi:"東大和市",HitotsubashiGakuen:"一橋学園",HonKawagoe:"本川越",Hoya:"保谷",InariyamaKoen:"稲荷山公園",Iogi:"井荻",Iriso:"入曽",Irumashi:"入間市",KamiIgusa:"上井草",KamiShakujii:"上石神井",Kiyose:"清瀬",Kodaira:"小平",Koigakubo:"恋ヶ窪",KokuKoen:"航空公園",Kokubunji:"国分寺",Koma:"高麗",Koremasa:"是政",Kotesashi:"小手指",Kumegawa:"久米川",KyoteijoMae:"競艇場前",MinamiOtsuka:"南大塚",Motokaji:"元加治",MusashiFujisawa:"武蔵藤沢",MusashiSakai:"武蔵境",MusashiSeki:"武蔵関",MusashiSunagawa:"武蔵砂川",MusashiYamato:"武蔵大和",MusashiYokote:"武蔵横手",Nakamurabashi:"中村橋",NerimaTakanodai:"練馬高野台",NishiAgano:"西吾野",NishiTokorozawa:"西所沢",Nogata:"野方",Numabukuro:"沼袋",Ogawa:"小川",OizumiGakuen:"大泉学園",OmeKaido:"青梅街道",Saginomiya:"鷺ノ宮",Sakuradai:"桜台",Sayamagaoka:"狭山ヶ丘",Sayamashi:"狭山市",SeibuChichibu:"西武秩父",SeibuShinjuku:"西武新宿",SeibuTachikawa:"西武立川",SeibuYagisawa:"西武柳沢",Seibuen:"西武園",SeibuenYuenchi:"西武園ゆうえんち",SeibukyujoMae:"西武球場前",ShakujiiKoen:"石神井公園",Shiinamachi:"椎名町",ShimoIgusa:"下井草",ShimoOchiai:"下落合",ShimoYamaguchi:"下山口",ShinKoganei:"新小金井",ShinSakuradai:"新桜台",ShinSayama:"新狭山",ShinTokorozawa:"新所沢",Shiraitodai:"白糸台",Shomaru:"正丸",Takanodai:"鷹の台",Tama:"多磨",TamagawaJosui:"玉川上水",Tamako:"多摩湖",Tanashi:"田無",Tokorozawa:"所沢",ToritsuKasei:"都立家政",Yasaka:"八坂",Yokoze:"横瀬",
+/* --- 東武鉄道 --- */
+Agata:"県",Aioi:"相老",Akagi:"赤城",Asaka:"朝霞",Asakadai:"朝霞台",Ashikagashi:"足利市",Atago:"愛宕",Azami:"阿左美",BushuKarasawa:"武州唐沢",BushuNagase:"武州長瀬",Daishimae:"大師前",Daiyamuko:"大谷向",Dokkyodaigakumae:"獨協大学前",Edogawadai:"江戸川台",Esojima:"江曽島",Fujimino:"ふじみ野",FujinoUshijima:"藤の牛島",Fujioka:"藤岡",Fukui:"福居",Funabashi:"船橋",Gamo:"蒲生",Goshi:"剛志",Gotanno:"五反野",Hachigata:"鉢形",Hanasaki:"花崎",Hanyu:"羽生",Hatsuishi:"初石",HigashiAzuma:"東あずま",HigashiIwatsuki:"東岩槻",HigashiKoizumi:"東小泉",HigashiMatsuyama:"東松山",HigashiMoro:"東毛呂",HigashiMukojima:"東向島",Hikifune:"曳舟",Himemiya:"姫宮",HonNakano:"本中野",Horigome:"堀米",Horikiri:"堀切",Hosoya:"細谷",Ichinowari:"一ノ割",Ienaka:"家中",Ippommatsu:"一本松",Isesaki:"伊勢崎",Itaga:"板荷",ItakuraToyodaimae:"板倉東洋大前",Iwatsuki:"岩槻",Jiroembashi:"治良門橋",Kamagaya:"鎌ヶ谷",Kameido:"亀戸",Kameidosuijin:"亀戸水神",KamiFukuoka:"上福岡",KamiImaichi:"上今市",KamiItabashi:"上板橋",Kanegafuchi:"鐘ヶ淵",Kashiwa:"柏",Kassemba:"合戦場",Kasukabe:"春日部",Kawagoe:"川越",Kawagoeshi:"川越市",Kawakado:"川角",Kawama:"川間",Kawamata:"川俣",Kazo:"加須",KinugawaKoen:"鬼怒川公園",KinugawaOnsen:"鬼怒川温泉",KitaIkebukuro:"北池袋",KitaKanuma:"北鹿沼",KitaKasukabe:"北春日部",KitaKoshigaya:"北越谷",KitaOmiya:"北大宮",KitaSakado:"北坂戸",Kizaki:"木崎",Koizumimachi:"小泉町",Kosagoe:"小佐越",Koshigaya:"越谷",Kosuge:"小菅",Kuki:"久喜",Kuniya:"国谷",Kurihashi:"栗橋",Kuzu:"葛生",Magomezawa:"馬込沢",Masuo:"増尾",Mibu:"壬生",MinamiHanyu:"南羽生",MinamiKurihashi:"南栗橋",MinamiSakurai:"南桜井",MinamiUtsunomiya:"南宇都宮",MinamiYorii:"みなみ寄居",Mizuhodai:"みずほ台",Momiyama:"樅山",Morinjimae:"茂林寺前",MusashiRanzan:"武蔵嵐山",Mutsumi:"六実",Myojin:"明神",NagareyamaOtakanomori:"流山おおたかの森",NakaItabashi:"中板橋",Nanakodai:"七光台",Nanasato:"七里",Narimasu:"成増",Narushima:"成島",Niragawa:"韮川",Niregi:"楡木",NishiKoizumi:"西小泉",NishiOya:"西大家",Nishiarai:"西新井",Nishikawada:"西川田",Nodashi:"野田市",Obukuro:"大袋",Obusuma:"男衾",Ogose:"越生",Okuwa:"大桑",Omiya:"大宮",OmiyaKoen:"大宮公園",Omochanomachi:"おもちゃのまち",Omurai:"小村井",Ota:"太田",Owada:"大和田",Oyama:"大山",Ryumai:"竜舞",Sakado:"坂戸",Sakaimachi:"境町",Sakasai:"逆井",Sammaibashi:"三枚橋",Sano:"佐野",Sanoshi:"佐野市",Satte:"幸手",Sengendai:"せんげん台",Serada:"世良田",Shiki:"志木",ShimizuKoen:"清水公園",ShimoAkatsuka:"下赤塚",ShimoGoshiro:"下小代",ShimoImaichi:"下今市",ShimoItabashi:"下板橋",ShinFujiwara:"新藤原",ShinFunabashi:"新船橋",ShinIsesaki:"新伊勢崎",ShinKamagaya:"新鎌ヶ谷",ShinKanuma:"新鹿沼",ShinKashiwa:"新柏",ShinKiryu:"新桐生",ShinKoga:"新古河",ShinKoshigaya:"新越谷",ShinOhirashita:"新大平下",ShinTakatoku:"新高徳",ShinTochigi:"新栃木",Shinden:"新田",Shingashi:"新河岸",Shinozuka:"篠塚",ShinrinKoen:"森林公園",Shizuwa:"静和",Soka:"草加",SugitoTakanodai:"杉戸高野台",Tada:"多田",Tajima:"田島",Takasaka:"高坂",Takayanagi:"高柳",Takenotsuka:"竹ノ塚",Takesato:"武里",Tamayodo:"玉淀",Tanuma:"田沼",Tatara:"多々良",Tatebayashi:"館林",TobuDobutsuKoen:"東武動物公園",TobuIzumi:"東武和泉",TobuKanasaki:"東武金崎",TobuNerima:"東武練馬",TobuNikko:"東武日光",TobuTakezawa:"東武竹沢",TobuUtsunomiya:"東武宇都宮",TobuWorldSquare:"東武ワールドスクウェア",Tochigi:"栃木",Tokiwadai:"ときわ台",TokyoSkytree:"とうきょうスカイツリー",Toyoharu:"豊春",Toyoshiki:"豊四季",Tsukada:"塚田",Tsukinowa:"つきのわ",Tsurugashima:"鶴ヶ島",Tsuruse:"鶴瀬",Umejima:"梅島",Umesato:"梅郷",Unga:"運河",Ushida:"牛田",Wado:"和戸",Wakaba:"若葉",Washinomiya:"鷲宮",Watarase:"渡瀬",Yabuzuka:"藪塚",Yagisaki:"八木崎",Yagyu:"柳生",Yanasegawa:"柳瀬川",YashuHirakawa:"野州平川",YashuOtsuka:"野州大塚",YashuYamabe:"野州山辺",Yasuzuka:"安塚",Yatsuka:"谷塚",Yorii:"寄居",Yoshimizu:"吉水",
+/* --- 東急電鉄 --- */
+Aobadai:"青葉台",Azamino:"あざみ野",Chidoricho:"千鳥町",ChuoRinkan:"中央林間",DaikanYama:"代官山",DenEnChofu:"田園調布",EbaraMachi:"荏原町",EbaraNakanobu:"荏原中延",Eda:"江田",FudoMae:"不動前",Fujigaoka:"藤が丘",FutakoShinchi:"二子新地",FutakoTamagawa:"二子玉川",GakugeiDaigaku:"学芸大学",Hakuraku:"白楽",Hasunuma:"蓮沼",Hatanodai:"旗の台",HigashiHakuraku:"東白楽",Hiyoshi:"日吉",Ichigao:"市が尾",Ikegami:"池上",Ikejiriohashi:"池尻大橋",IshikawaDai:"石川台",Jiyugaoka:"自由が丘",Kajigaya:"梶が谷",Kamata:"蒲田",Kamimachi:"上町",Kaminoge:"上野毛",Kikuna:"菊名",KitaSenzoku:"北千束",Kodomonokuni:"こどもの国",KomazawaDaigaku:"駒沢大学",Kugahara:"久が原",Kuhombutsu:"九品仏",Matsubara:"松原",Midorigaoka:"緑が丘",MinamiMachidaGrandberryPark:"南町田グランベリーパーク",Miyamaedaira:"宮前平",Miyanosaka:"宮の坂",Miyazakidai:"宮崎台",Mizonokuchi:"溝の口",Motosumiyoshi:"元住吉",MusashiKosugi:"武蔵小杉",MusashiKoyama:"武蔵小山",MusashiNitta:"武蔵新田",Myorenji:"妙蓮寺",Nagahara:"長原",Nagatsuta:"長津田",NishiKoyama:"西小山",NishiTaishido:"西太子堂",Numabe:"沼部",Oimachi:"大井町",Okurayama:"大倉山",Okusawa:"奥沢",Onda:"恩田",Ontakesan:"御嶽山",Ookayama:"大岡山",Osakihirokoji:"大崎広小路",Oyamadai:"尾山台",Saginuma:"鷺沼",SakuraShimmachi:"桜新町",SangenJaya:"三軒茶屋",Senzoku:"洗足",SenzokuIke:"洗足池",Setagaya:"世田谷",ShimoShimmei:"下神明",Shimomaruko:"下丸子",ShinMaruko:"新丸子",ShinTsunashima:"新綱島",ShinYokohama:"新横浜",ShoinJinjaMae:"松陰神社前",Suzukakedai:"すずかけ台",Takatsu:"高津",TamaPlaza:"たまプラーザ",Tamagawa:"多摩川",Tammachi:"反町",Tana:"田奈",Todoroki:"等々力",TogoshiGinza:"戸越銀座",TogoshiKoen:"戸越公園",ToritsuDaigaku:"都立大学",Tsukimino:"つきみ野",Tsukushino:"つくし野",Tsunashima:"綱島",Unoki:"鵜の木",Wakabayashi:"若林",YaguchiNoWatashi:"矢口渡",Yamashita:"山下",Yoga:"用賀",Yokohama:"横浜",Yukigayaotsuka:"雪が谷大塚",Yutenji:"祐天寺",
+/* --- 都電荒川線 --- */
+Minowabashi:"三ノ輪橋",ArakawaItchumae:"荒川一中前",ArakawaKuyakushomae:"荒川区役所前",ArakawaNichome:"荒川二丁目",ArakawaNanachome:"荒川七丁目",MachiyaEkimae:"町屋駅前",MachiyaNichome:"町屋二丁目",HigashiOguSanchome:"東尾久三丁目",Miyanomae:"宮ノ前",Odai:"小台",ArakawaYuenchimae:"荒川遊園地前",ArakawaShakomae:"荒川車庫前",Kajiwara:"梶原",Sakaecho:"栄町",OjiEkimae:"王子駅前",Asukayama:"飛鳥山",TakinogawaItchome:"滝野川一丁目",NishigaharaYonchome:"西ケ原四丁目",ShinKoshinzuka:"新庚申塚",Koshinzuka:"庚申塚",SugamoShinden:"巣鴨新田",OtsukaEkimae:"大塚駅前",Mukohara:"向原",HigashiIkebukuroYonchome:"東池袋四丁目",TodenZoshigaya:"都電雑司ケ谷",Kishibojimmae:"鬼子母神前",Gakushuinshita:"学習院下",Omokagebashi:"面影橋",
+
+/* --- 京浜急行電鉄 --- */
+AnamoriInari:"穴守稲荷",Anjinzuka:"安針塚",AomonoYokocho:"青物横丁",Byobugaura:"屏風浦",Daishibashi:"大師橋",Gumyoji:"弘明寺",HanedaAirportTerminal1and2:"羽田空港第1・第2ターミナル",HanedaAirportTerminal3:"羽田空港第3ターミナル",HatchoNawate:"八丁畷",Heiwajima:"平和島",Hemi:"逸見",Higashimonzen:"東門前",Hinodecho:"日ノ出町",Horinouchi:"堀ノ内",Idogaya:"井土ヶ谷",Jimmuji:"神武寺",Kagetsusojiji:"花月総持寺",Kamiooka:"上大岡",Kanagawa:"神奈川",KanagawaShimmachi:"神奈川新町",KanazawaBunko:"金沢文庫",KanazawaHakkei:"金沢八景",Kawasakidaishi:"川崎大師",KeikyuHigashikanagawa:"京急東神奈川",KeikyuKamata:"京急蒲田",KeikyuKawasaki:"京急川崎",KeikyuKurihama:"京急久里浜",KeikyuNagasawa:"京急長沢",KeikyuOtsu:"京急大津",KeikyuShinkoyasu:"京急新子安",KeikyuTaura:"京急田浦",KeikyuTomioka:"京急富岡",KeikyuTsurumi:"京急鶴見",Kenritsudaigaku:"県立大学",Kitakurihama:"北久里浜",Kitashinagawa:"北品川",Koganecho:"黄金町",Kojimashinden:"小島新田",Kojiya:"糀谷",Koyasu:"子安",Maborikaigan:"馬堀海岸",Minamiota:"南太田",Minatocho:"港町",Misakiguchi:"三崎口",Miurakaigan:"三浦海岸",Mutsuura:"六浦",Namamugi:"生麦",Nokendai:"能見台",Omorikaigan:"大森海岸",Omorimachi:"大森町",Oppama:"追浜",Otorii:"大鳥居",Rokugodote:"六郷土手",Samezu:"鮫洲",Sengakuji:"泉岳寺",Shimbamba:"新馬場",Shinagawa:"品川",Shinotsu:"新大津",Shioiri:"汐入",Sugita:"杉田",Suzukicho:"鈴木町",Tachiaigawa:"立会川",Tenkubashi:"天空橋",Tobe:"戸部",Tsukuihama:"津久井浜",TsurumiIchiba:"鶴見市場",Umeyashiki:"梅屋敷",Uraga:"浦賀",Yokohama:"横浜",YokosukaChuo:"横須賀中央",YrpNobi:"YRP野比",Zoshiki:"雑色",ZushiHayama:"逗子・葉山",
+/* --- 相模鉄道 --- */
+Ebina:"海老名",Futamatagawa:"二俣川",HazawaYokohamaKokudai:"羽沢横浜国大",Hiranumabashi:"平沼橋",Hoshikawa:"星川",IzumiChuo:"いずみ中央",Izumino:"いずみ野",KamiHoshikawa:"上星川",Kashiwadai:"かしわ台",Kibogaoka:"希望ヶ丘",MinamiMakigahara:"南万騎が原",Mitsukyo:"三ツ境",NishiYokohama:"西横浜",Nishiya:"西谷",Ryokuentoshi:"緑園都市",SagamiOtsuka:"相模大塚",Sagamino:"さがみ野",Seya:"瀬谷",ShinYokohama:"新横浜",Shonandai:"湘南台",Tennocho:"天王町",Tsurugamine:"鶴ヶ峰",Wadamachi:"和田町",Yamato:"大和",Yayoidai:"弥生台",Yokohama:"横浜",Yumegaoka:"ゆめが丘",
+/* --- 横浜高速鉄道みなとみらい線 --- */
+Bashamichi:"馬車道",MinatoMirai:"みなとみらい",MotomachiChukagai:"元町・中華街",NihonOdori:"日本大通り",ShinTakashima:"新高島",Yokohama:"横浜",
+/* --- 横浜市営地下鉄 --- */
+Azamino:"あざみ野",Nakagawa:"中川",CenterKita:"センター北",CenterMinami:"センター南",Nakamachidai:"仲町台",Nippa:"新羽",KitaShinYokohama:"北新横浜",ShinYokohama:"新横浜",KishineKoen:"岸根公園",Katakuracho:"片倉町",MitsuzawaKamicho:"三ツ沢上町",MitsuzawaShimocho:"三ツ沢下町",Yokohama:"横浜",Takashimacho:"高島町",Sakuragicho:"桜木町",Kannai:"関内",IsezakiChojamachi:"伊勢佐木長者町",Bandobashi:"阪東橋",Yoshinocho:"吉野町",Gumyoji:"弘明寺",Maita:"蒔田",Kamiooka:"上大岡",KonanChuo:"港南中央",Kaminagaya:"上永谷",Shimonagaya:"下永谷",Maioka:"舞岡",Totsuka:"戸塚",Odoriba:"踊場",Tateba:"立場",Shimoiida:"下飯田",Shonandai:"湘南台",Nakada:"中田",Nakayama:"中山",Kawawacho:"川和町",TsuzukiFureainooka:"都筑ふれあいの丘",KitaYamata:"北山田",HigashiYamata:"東山田",Takata:"高田",Hiyoshi:"日吉",HiyoshiHoncho:"日吉本町",
+/* --- つくばエクスプレス（首都圏新都市鉄道） --- */
+Akihabara:"秋葉原",ShinOkachimachi:"新御徒町",Asakusa:"浅草",MinamiSenju:"南千住",KitaSenju:"北千住",Aoi:"青井",Rokucho:"六町",Yashio:"八潮",MisatoChuo:"三郷中央",MinamiNagareyama:"南流山",NagareyamaCentralPark:"流山セントラルパーク",NagareyamaOtakanomori:"流山おおたかの森",KashiwanohaCampus:"柏の葉キャンパス",KashiwaTanaka:"柏たなか",Moriya:"守谷",Miraidaira:"みらい平",Midorino:"みどりの",BampakuKinenKoen:"万博記念公園",KenkyuGakuen:"研究学園",Tsukuba:"つくば",
+/* --- ゆりかもめ --- */
+Shimbashi:"新橋",Shiodome:"汐留",Takeshiba:"竹芝",Hinode:"日の出",ShibauraFuto:"芝浦ふ頭",OdaibaKaihinkoen:"お台場海浜公園",Daiba:"台場",TokyoInternationalCruiseTerminal:"東京国際クルーズターミナル",TelecomCenter:"テレコムセンター",Aomi:"青海",TokyoBigSight:"東京ビッグサイト",Ariake:"有明",AriakeTennisNoMori:"有明テニスの森",ShijoMae:"市場前",ShinToyosu:"新豊洲",Toyosu:"豊洲"
+};
+const NAMES_JA={};
+Object.keys(NAMES_JA_RAW).forEach(k=>NAMES_JA[k.toLowerCase()]=NAMES_JA_RAW[k]);
+const jaName=slug=>NAMES_JA[String(slug).toLowerCase()]||null;
+
+
+/* ============================================================
+   乗継割引テーブル（きっぷ・IC用。クレカはメトロ⇔都営70円のみ）
+   出典: 首都圏乗継割引設定全区間一覧 2026-03-14現在
+   （komachi600.web.fc2.com/waribiki-1.html）
+   条件: junction の駅で乗継ぎ、出発駅∈a かつ 到着駅∈b（逆方向は自動判定）
+============================================================ */
+const DISCOUNTS_TABLE=[
+ {id:"metro-toei-70",operators:["tokyometro","toei"],amount:70,appliesTo:["cash","ic","cc"],
+  note:"メトロ⇔都営連絡割引（全駅）。クレカ乗車に適用される唯一の乗継割引"},
+ /* --- 浅草接続 --- */
+ {id:"asakusa-tobu-metro",operators:["tobu","tokyometro"],junction:["Asakusa"],amount:20,appliesTo:["cash","ic"],
+  a:["TokyoSkytree","Hikifune","HigashiMukojima","Omurai"],b:["Tawaramachi","Inaricho"]},
+ {id:"asakusa-tobu-toei",operators:["tobu","toei"],junction:["Asakusa"],amount:20,appliesTo:["cash","ic"],
+  a:["TokyoSkytree","Hikifune","HigashiMukojima","Omurai"],b:["Asakusabashi","Kuramae","HonjoAzumabashi","Oshiage","ShinOkachimachi","Ryogoku"]},
+ /* --- 北千住・押上接続（東武⇔メトロ） --- */
+ {id:"kitasenju-tobu-metro",operators:["tobu","tokyometro"],junction:["KitaSenju"],amount:20,appliesTo:["cash","ic"],
+  a:["HigashiMukojima","Kanegafuchi","Horikiri","Ushida","Kosuge","Gotanno","Umejima"],
+  b:["MinamiSenju","Minowa","KitaAyase","Ayase","Machiya","NishiNippori"]},
+ {id:"oshiage-tobu-metro",operators:["tobu","tokyometro"],junction:["Oshiage"],amount:20,appliesTo:["cash","ic"],
+  a:["Hikifune","HigashiMukojima","Kanegafuchi","Omurai","HigashiAzuma","Kameidosuijin"],
+  b:["Kinshicho","Sumiyoshi"]},
+ /* --- 池袋接続 --- */
+ {id:"ikebukuro-tobu-seibu",operators:["tobu","seibu"],junction:["Ikebukuro"],amount:20,appliesTo:["cash","ic"],
+  a:["KitaIkebukuro","ShimoItabashi","Oyama","NakaItabashi"],b:["Shiinamachi","HigashiNagasaki"]},
+ {id:"ikebukuro-tobu-metro",operators:["tobu","tokyometro"],junction:["Ikebukuro"],amount:20,appliesTo:["cash","ic"],
+  a:["KitaIkebukuro","ShimoItabashi","Oyama","NakaItabashi"],
+  b:["ShinOtsuka","Myogadani","Senkawa","Kanamecho","HigashiIkebukuro","Gokokuji","Zoshigaya","NishiWaseda"]},
+ {id:"ikebukuro-seibu-metro",operators:["seibu","tokyometro"],junction:["Ikebukuro"],amount:20,appliesTo:["cash","ic"],
+  a:["Shiinamachi","HigashiNagasaki"],
+  b:["ShinOtsuka","Myogadani","Senkawa","Kanamecho","HigashiIkebukuro","Gokokuji","Zoshigaya","NishiWaseda"]},
+ /* --- 和光市・高田馬場・小竹向原 --- */
+ {id:"wakoshi-tobu-metro",operators:["tobu","tokyometro"],junction:["Wakoshi"],amount:20,appliesTo:["cash","ic"],
+  a:["Asaka","Asakadai"],b:["ChikatetsuNarimasu","ChikatetsuAkatsuka"]},
+ {id:"takadanobaba-seibu-metro",operators:["seibu","tokyometro"],junction:["Takadanobaba"],amount:20,appliesTo:["cash","ic"],
+  a:["SeibuShinjuku","ShimoOchiai","Nakai","AraiyakushiMae"],b:["Nakano","Ochiai","Waseda","Kagurazaka"]},
+ {id:"kotake-seibu-metro",operators:["seibu","tokyometro"],junction:["KotakeMukaihara"],amount:20,appliesTo:["cash","ic"],
+  a:["ShinSakuradai","Nerima","Toshimaen","Sakuradai"],b:["Heiwadai","Hikawadai","Senkawa","Kanamecho"]},
+ /* --- 渋谷・中目黒・目黒接続 --- */
+ {id:"shibuya-keio-metro",operators:["keio","tokyometro"],junction:["Shibuya"],amount:20,appliesTo:["cash","ic"],
+  a:["Shinsen","KomabaTodaimae","Ikenoue","ShimoKitazawa","Shindaita","HigashiMatsubara"],
+  b:["Omotesando","Gaiemmae","AoyamaItchome","MeijiJingumae","KitaSando","YoyogiKoen","Nogizaka"]},
+ {id:"shibuya-keio-tokyu",operators:["keio","tokyu"],junction:["Shibuya"],amount:20,appliesTo:["cash","ic"],
+  a:["Shinsen","KomabaTodaimae","Ikenoue","ShimoKitazawa","Shindaita","HigashiMatsubara"],
+  b:["DaikanYama","NakaMeguro","Ikejiriohashi","SangenJaya"]},
+ {id:"shibuya-tokyu-metro",operators:["tokyu","tokyometro"],junction:["Shibuya"],amount:20,appliesTo:["cash","ic"],
+  a:["DaikanYama","NakaMeguro","Ikejiriohashi","SangenJaya"],
+  b:["Omotesando","Gaiemmae","AoyamaItchome","MeijiJingumae","KitaSando","YoyogiKoen","Nogizaka"]},
+ {id:"nakameguro-tokyu-metro",operators:["tokyu","tokyometro"],junction:["NakaMeguro"],amount:20,appliesTo:["cash","ic"],
+  a:["Shibuya","DaikanYama","Yutenji","GakugeiDaigaku"],b:["Ebisu","Hiroo"]},
+ {id:"meguro-tokyu-metro",operators:["tokyu","tokyometro"],junction:["Meguro"],amount:20,appliesTo:["cash","ic"],
+  a:["FudoMae","MusashiKoyama","NishiKoyama"],b:["Shirokanedai","ShirokaneTakanawa"]},
+ {id:"meguro-tokyu-toei",operators:["tokyu","toei"],junction:["Meguro"],amount:20,appliesTo:["cash","ic"],
+  a:["FudoMae","MusashiKoyama","NishiKoyama"],b:["Shirokanedai","ShirokaneTakanawa"]},
+ /* --- 新宿接続 --- */
+ {id:"shinjuku-keio-metro",operators:["keio","tokyometro"],junction:["Shinjuku"],amount:20,appliesTo:["cash","ic"],
+  a:["Hatsudai","Hatagaya","Sasazuka"],
+  b:["ShinjukuGyoemmae","ShinjukuSanchome","NishiShinjuku","NakanoSakaue","ShinNakano","NakanoShimbashi","HigashiShinjuku","KitaSando"]},
+ {id:"shinjuku-keio-toei",operators:["keio","toei"],junction:["Shinjuku"],amount:20,appliesTo:["cash","ic"],
+  a:["Hatsudai","Hatagaya","Sasazuka"],
+  b:["ShinjukuSanchome","Akebonobashi","NishiShinjukuGochome","Tochomae","Yoyogi","Kokuritsukyogijo"]},
+ /* --- IC限定（連絡改札がない乗換） --- */
+ {id:"shinjuku-seibu-metro-ic",operators:["seibu","tokyometro"],junction:["SeibuShinjuku","Shinjuku"],amount:20,appliesTo:["ic"],
+  a:["Takadanobaba","ShimoOchiai","Nakai"],
+  b:["ShinjukuGyoemmae","ShinjukuSanchome","NishiShinjuku","NakanoSakaue","ShinNakano","NakanoShimbashi","HigashiShinjuku","KitaSando"]},
+ {id:"shinjukunishiguchi-seibu-toei-ic",operators:["seibu","toei"],junction:["SeibuShinjuku","ShinjukuNishiguchi","Shinjuku"],amount:20,appliesTo:["ic"],
+  a:["Takadanobaba","ShimoOchiai","Nakai"],
+  b:["NishiShinjukuGochome","Shinjuku","Tochomae","HigashiShinjuku","WakamatsuKawada"]},
+ {id:"nakai-seibu-toei-ic",operators:["seibu","toei"],junction:["Nakai"],amount:20,appliesTo:["ic"],
+  a:["SeibuShinjuku","Takadanobaba","ShimoOchiai","AraiyakushiMae","Numabukuro","Nogata"],
+  b:["NakanoSakaue","HigashiNakano","OchiaiMinamiNagasaki","ShinEgota"]},
+ {id:"nerima-seibu-toei-ic",operators:["seibu","toei"],junction:["Nerima"],amount:20,appliesTo:["ic"],
+  a:["HigashiNagasaki","Ekoda","Sakuradai","Nakamurabashi","Fujimidai","NerimaTakanodai","ShinSakuradai","KotakeMukaihara"],
+  b:["OchiaiMinamiNagasaki","ShinEgota","Toshimaen","NerimaKasugacho"]}
+];
+
+/* 同一駅グループのデフォルト設定（画面上のテキストエリアで編集可能） */
+const DEFAULT_GROUPS_TEXT=`# 同一駅グループ（乗換可能・運賃通算）の設定
+# 1行が1グループ。書式:  社局:スラッグ + 社局:スラッグ (+ …)
+# 社局は metro / toei / tokyu / tobu / seibu / keio など。#で始まる行はコメント
+# 先頭に ! を付けると「同名でも別駅」として自動結合から除外します
+! tobu:Kasumigaseki   # 東武東上線 霞ヶ関（川越市）はメトロ霞ケ関とは別駅
+! tobu:Ogawamachi     # 東武東上線 小川町（埼玉）は都営小川町とは別駅
+! toei:Waseda         # 都電 早稲田はメトロ早稲田と離れているため除外
+metro:Korakuen + toei:Kasuga
+toei:Bakuroyokoyama + toei:HigashiNihombashi
+toei:Ogawamachi + metro:Awajicho + metro:ShinOchanomizu
+metro:Hibiya + metro:Yurakucho + toei:Hibiya
+metro:UenoHirokoji + metro:NakaOkachimachi + toei:UenoOkachimachi
+metro:Akihabara + toei:Iwamotocho
+seibu:SeibuShinjuku + metro:Shinjuku    # 西武新宿は新宿駅群と乗換扱い（IC限定割引あり）
+seibu:SeibuShinjuku + toei:ShinjukuNishiguchi`;
+
+function parseManualGroups(){
+  const ta=document.getElementById("groups-input");
+  const txt=ta?ta.value:DEFAULT_GROUPS_TEXT;
+  const groups=[], errs=[], excludes=[];
+  txt.split(/\n/).forEach((line,ln)=>{
+    let t=line.trim();
+    if(!t||t.startsWith("#")) return;
+    const cmt=t.indexOf("#"); if(cmt>0) t=t.slice(0,cmt).trim();
+    if(t.startsWith("!")){
+      const m=t.slice(1).trim().match(/^(metro|tokyometro|toei|tokyu|tobu|seibu|keio|keikyu|odakyu|sotetsu|minatomirai)\s*[:：]\s*([A-Za-z0-9]+)$/i);
+      if(m){ const op=m[1].toLowerCase()==="metro"?"tokyometro":m[1].toLowerCase(); excludes.push(op+"|"+m[2]); }
+      else errs.push((ln+1)+"行目: 除外指定「"+t+"」を解釈できません");
+      return;
+    }
+    const members=[];
+    let ok=true;
+    for(const part of t.split("+")){
+      const m=part.trim().match(/^(metro|tokyometro|toei|tokyu|tobu|seibu|keio|keikyu|odakyu|sotetsu|minatomirai)\s*[:：]\s*([A-Za-z0-9]+)$/i);
+      if(!m){ errs.push((ln+1)+"行目: 「"+part.trim()+"」を解釈できません"); ok=false; break; }
+      const op=m[1].toLowerCase()==="metro"?"tokyometro":m[1].toLowerCase();
+      members.push([op,m[2]]);
+    }
+    if(ok&&members.length>=2) groups.push({id:"manual-"+(groups.length+1),members});
+  });
+  return {groups,errs,excludes};
+}
+
+const drop=document.getElementById("drop");
+const input=document.getElementById("file-input");
+drop.addEventListener("dragover",e=>{e.preventDefault();drop.classList.add("over");});
+drop.addEventListener("dragleave",()=>drop.classList.remove("over"));
+drop.addEventListener("drop",e=>{
+  e.preventDefault();drop.classList.remove("over");
+  addFiles([...e.dataTransfer.files]);
+});
+input.addEventListener("change",()=>{ addFiles([...input.files]); input.value=""; });
+
+async function addFiles(fs){
+  for(const f of fs){
+    /* 拡張子では判定しない（Windowsの8.3短縮名「~1.JSO」等で誤判定するため）。中身で判定する */
+    let text;
+    try{ text=await f.text(); }
+    catch(err){ alert(f.name+" を読み取れませんでした: "+err.message); continue; }
+    if(!text||!text.trim()){
+      alert(f.name+" の中身が空です。ZIPの中から直接ドラッグしている場合は、先にZIPを展開（すべて展開）してから入れてください。");
+      continue;
+    }
+    let data;
+    try{ data=JSON.parse(text); }
+    catch(err){ alert(f.name+" はJSONとして解析できませんでした: "+err.message+"\nZIPの中から直接ドラッグしている場合は、先にZIPを展開してください。"); continue; }
+    if(!Array.isArray(data)){
+      /* 既存フォーマットはfare.jsonのoperatorsへパススルー:
+         fare_tx.json等の単体 / 生成済みfare.json(v2) / 旧fare_metro_toei_bundle.json */
+      if(data.fareType==="distance-band"||data.fareType==="od-matrix"){
+        files.push({name:f.name,size:f.size,kind:"extra",records:[data]});
+        renderFiles(); continue;
+      }
+      if(data.format==="fare"&&Array.isArray(data.operators)){
+        /* 完成済み fare.json は「土台」として読み込み、既存の割引・同一駅グループ・手動修正を保持する */
+        files.push({name:f.name,size:f.size,kind:"base",records:data.operators,base:data});
+        renderFiles(); continue;
+      }
+      if(data.format==="fare-bundle"&&Array.isArray(data.operators)){
+        files.push({name:f.name,size:f.size,kind:"extra",records:data.operators});
+        renderFiles(); continue;
+      }
+      alert(f.name+" は対応形式ではありません（ODPTのRailwayFare/Station、または fare_*.json を入れてください）"); continue;
+    }
+    const types=new Set(data.map(r=>r["@type"]));
+    let kind="unknown";
+    if(types.has("odpt:RailwayFare")) kind="fare";
+    else if(types.has("odpt:Station")) kind="station";
+    files.push({name:f.name,size:f.size,kind,records:data});
+  }
+  renderFiles();
+}
+function renderFiles(){
+  const el=document.getElementById("filelist");
+  el.innerHTML=files.map((f,i)=>`
+    <div class="file-row">
+      <span class="badge ${f.kind==="extra"?"station":f.kind==="base"?"fare":f.kind}">${f.kind==="fare"?"運賃":f.kind==="station"?"駅名":f.kind==="extra"?"既存":f.kind==="base"?"土台fare.json":"不明"}</span>
+      <span class="fname">${f.name}</span>
+      <span class="fmeta">${f.records.length.toLocaleString()}件・${(f.size/1024).toFixed(0)}KB</span>
+      <button class="rm" onclick="removeFile(${i})" title="削除">✕</button>
+    </div>`).join("");
+  document.getElementById("run-btn").disabled = !files.some(f=>f.kind==="fare"||f.kind==="extra"||f.kind==="base");
+}
+function removeFile(i){ files.splice(i,1); renderFiles(); }
+
+/* ============================================================
+   conversion (odpt_fare_importer.py と同一ロジック)
+============================================================ */
+const slugOf = id => id.split(":").pop().split(".").pop();
+
+function run(){
+  document.getElementById("spinner").style.display="block";
+  document.getElementById("results").innerHTML="";
+  setTimeout(()=>{
+    try{ doRun(); }
+    catch(e){
+      document.getElementById("results").innerHTML=
+        `<div class="op-card" style="border:2px solid var(--red);">
+           <div class="op-name" style="color:var(--red);">変換エラー</div>
+           <pre>${String(e.stack||e).replace(/</g,"&lt;")}</pre>
+           <div class="footnote">このメッセージを開発者に伝えてください。</div>
+         </div>`;
+    }
+    finally{ document.getElementById("spinner").style.display="none"; }
+  }, 30);
+}
+
+function doRun(){
+  /* station names */
+  const names={};
+  files.filter(f=>f.kind==="station").forEach(f=>{
+    f.records.forEach(r=>{
+      const sid=r["owl:sameAs"]||"";
+      const t=r["odpt:stationTitle"];
+      if(sid && t && t.ja) names[slugOf(sid)]=t.ja;
+    });
+  });
+
+  /* group by operator */
+  const byOp={};
+  files.filter(f=>f.kind==="fare").forEach(f=>{
+    f.records.forEach(r=>{
+      if(r["@type"]!=="odpt:RailwayFare") return;
+      const op=r["odpt:operator"].split(":").pop();
+      (byOp[op]=byOp[op]||[]).push(r);
+    });
+  });
+
+  /* 土台となる既存 fare.json（あれば） */
+  baseFare = (files.find(f=>f.kind==="base")||{}).base || null;
+
+  const resEl=document.getElementById("results");
+  resEl.innerHTML=`<div class="section-header">変換結果</div>`;
+  converted={};
+  Object.keys(byOp).sort().forEach(op=>convertOperator(op,byOp[op],names,resEl));
+  /* パススルー分: od-matrixのメトロ/都営はconvertedに合流（stationGroups・検算に参加）、
+     それ以外はoperatorsへそのまま。RailwayFareから変換済みの事業者は重複させない */
+  extraOperators=[];
+  files.filter(f=>f.kind==="extra").forEach(f=>f.records.forEach(op=>{
+    if(op.fareType==="od-matrix"&&(op.operator==="tokyometro"||op.operator==="toei")){
+      if(!converted[op.operator]) converted[op.operator]=op;
+    }else if(!extraOperators.some(x=>x.operator===op.operator)){
+      extraOperators.push(op);
+    }
+  }));
+  if(Object.keys(converted).length||extraOperators.length||baseFare) renderFareCard(resEl);
+}
+
+function convertOperator(op,recs,names,resEl){
+  const slugIds={}, fares=new Map(), conflicts=[], issued=new Set();
+
+  for(const r of recs){
+    const f=slugOf(r["odpt:fromStation"]), t=slugOf(r["odpt:toStation"]);
+    (slugIds[f]=slugIds[f]||new Set()).add(r["odpt:fromStation"]);
+    (slugIds[t]=slugIds[t]||new Set()).add(r["odpt:toStation"]);
+    const cash=r["odpt:ticketFare"], ic=r["odpt:icCardFare"];
+    if(r["dct:issued"]) issued.add(r["dct:issued"]);
+    const key=f+"|"+t;
+    if(fares.has(key)){
+      const v=fares.get(key);
+      if(v[0]!==cash||v[1]!==ic) conflicts.push([key,v,[cash,ic]]);
+    }else fares.set(key,[cash,ic]);
+  }
+
+  const stations=Object.keys(slugIds).sort();
+  const idx={}; stations.forEach((s,i)=>idx[s]=i);
+
+  /* validations */
+  const not10=[], ceilNg=[], asym=[];
+  for(const [k,v] of fares){
+    if(v[0]%10!==0) not10.push([k,v]);
+    if(Math.ceil(v[1]/10)*10!==v[0]) ceilNg.push([k,v]);
+    const [f,t]=k.split("|");
+    const w=fares.get(t+"|"+f);
+    if(w && (w[0]!==v[0]||w[1]!==v[1]) && f<t) asym.push([k,v,w]);
+  }
+  const symmetric = asym.length===0;
+
+  /* build pairs (symmetric→片方向のみ) */
+  const pairs=[]; const seen=new Set();
+  [...fares.keys()].sort().forEach(k=>{
+    const [f,t]=k.split("|");
+    if(symmetric){
+      const sk=[f,t].sort().join("|");
+      if(seen.has(sk)) return;
+      seen.add(sk);
+    }
+    const v=fares.get(k);
+    pairs.push([idx[f],idx[t],v[0],v[1]]);
+  });
+
+  const issuedArr=[...issued].sort();
+  const out={
+    operator:op.toLowerCase(),
+    operatorName:OPERATOR_NAMES[op]||op,
+    fareType:"od-matrix",
+    symmetric,
+    issued:issuedArr.length?issuedArr[issuedArr.length-1]:null,
+    source:"ODPT odpt:RailwayFare",
+    note:"駅は路線修飾IDを駅名スラッグで名寄せ。連絡運賃は含まれない",
+    fareRounding:{cashFromIc: ceilNg.length? "例外あり（レポート参照）":"きっぷ運賃 = IC運賃を10円単位に切り上げ"},
+    interop:{sharedGates:[],throughService:[],transferDiscounts:[],ccWhitelisted:true},
+    stations:stations.map((s,i)=>({idx:i,slug:s,name:names[s]||jaName(s)||s,odptIds:[...slugIds[s]].sort()})),
+    pairFormat:["fromIdx","toIdx","cash","ic"],
+    fares:pairs
+  };
+  const jsonStr=JSON.stringify(out);
+  const fname=`fare_${op.toLowerCase()}.json`;
+
+  /* report text */
+  const fmt=(arr,f)=>arr.slice(0,15).map(f).join("\n")+(arr.length>15?`\n  …ほか${arr.length-15}件`:"");
+  const report=
+`=== ${op} ===
+入力レコード数: ${recs.length}
+駅数（名寄せ後）: ${stations.length}
+ODペア数（名寄せ後・有向）: ${fares.size}
+dct:issued: ${issuedArr.join(", ")||"-"}
+名寄せ矛盾: ${conflicts.length}件
+${conflicts.length?fmt(conflicts,c=>`  ! ${c[0]}: ${JSON.stringify(c[1])} vs ${JSON.stringify(c[2])}`):""}
+きっぷ運賃が10円単位でない: ${not10.length}件
+${not10.length?fmt(not10,c=>`  ! ${c[0]}: ${JSON.stringify(c[1])}`):""}
+きっぷ ≠ IC切り上げ: ${ceilNg.length}件
+${ceilNg.length?fmt(ceilNg,c=>`  ! ${c[0].replace("|"," → ")}: きっぷ${c[1][0]} IC${c[1][1]}`):""}
+非対称ペア: ${asym.length}件
+${asym.length?fmt(asym,c=>`  ! ${c[0].replace("|"," ⇔ ")}: ${JSON.stringify(c[1])} vs ${JSON.stringify(c[2])}`):""}
+出力: ${fname}（${pairs.length}ペア, symmetric=${symmetric}, ${(jsonStr.length/1024).toFixed(0)}KB）`;
+
+  /* result card */
+  const namedCount=stations.filter(s=>names[s]).length;
+  const div=document.createElement("div");
+  div.className="op-card";
+  div.innerHTML=`
+    <div class="op-head">
+      <div class="op-name">${OPERATOR_NAMES[op]||op}</div>
+      <button class="dl-btn">⬇ ${fname}</button>
+      <button class="dl-btn" style="background:var(--bg);color:var(--label2);">⬇ レポート</button>
+    </div>
+    <div class="stats">
+      <div class="stat"><b>${stations.length}</b>駅（名寄せ後）</div>
+      <div class="stat"><b>${pairs.length.toLocaleString()}</b>格納ペア</div>
+      <div class="stat"><b>${(jsonStr.length/1024).toFixed(0)}KB</b>出力サイズ</div>
+      <div class="stat"><b>${issuedArr[issuedArr.length-1]||"-"}</b>データ日付</div>
+      <div class="stat"><b>${namedCount}/${stations.length}</b>日本語駅名付与</div>
+    </div>
+    <div class="check">${conflicts.length===0?'<span class="ok">✓ 名寄せ矛盾なし</span>':'<span class="ng">⚠ 名寄せ矛盾 '+conflicts.length+'件</span>'}</div>
+    <div class="check">${not10.length===0?'<span class="ok">✓ きっぷ運賃はすべて10円単位</span>':'<span class="ng">⚠ 10円単位でない運賃 '+not10.length+'件</span>'}</div>
+    <div class="check">${ceilNg.length===0?'<span class="ok">✓ きっぷ＝IC切り上げが全ペア成立</span>':'<span class="ng">⚠ 切り上げ規則の例外 '+ceilNg.length+'件（特定運賃の可能性）</span>'}</div>
+    <div class="check">${symmetric?'<span class="ok">✓ 運賃は対称（片方向のみ格納しサイズ半減）</span>':'<span class="ng">⚠ 非対称ペア '+asym.length+'件（有向で格納）</span>'}</div>
+    <details><summary>検証レポートを表示</summary><pre>${report.replace(/</g,"&lt;")}</pre></details>`;
+  const btns=div.querySelectorAll(".dl-btn");
+  btns[0].onclick=()=>download(fname,jsonStr,"application/json");
+  btns[1].onclick=()=>download(`import_report_${op.toLowerCase()}.txt`,report,"text/plain");
+  resEl.appendChild(div);
+  converted[out.operator]=out;
+}
+
+/* ============================================================
+   fare.json（format:"fare", version:2）統合出力 — 設計書§12.3
+============================================================ */
+function fareLookup(opData){
+  const map=new Map();
+  for(const [f,t,cash,ic] of opData.fares){
+    map.set(f+"|"+t,[cash,ic]);
+    if(opData.symmetric) map.set(t+"|"+f,[cash,ic]);
+  }
+  const idx={}; opData.stations.forEach(s=>idx[s.slug]=s.idx);
+  const nameOf={}; opData.stations.forEach(s=>nameOf[s.slug]=s.name);
+  return {
+    get(fromSlug,toSlug){
+      if(!(fromSlug in idx)||!(toSlug in idx)) return null;
+      if(fromSlug===toSlug) return [0,0];
+      return map.get(idx[fromSlug]+"|"+idx[toSlug])||null;
+    },
+    has(slug){ return slug in idx; },
+    name(slug){ return nameOf[slug]||slug; }
+  };
+}
+
+/* 出力に含める全事業者（土台 + 新規変換 + パススルー、operator重複は新規変換を優先） */
+function allOperatorObjects(){
+  const map=new Map();
+  if(baseFare) baseFare.operators.forEach(o=>map.set(o.operator,o));
+  extraOperators.forEach(o=>{ if(!map.has(o.operator)) map.set(o.operator,o); });
+  Object.keys(converted).forEach(op=>map.set(converted[op].operator,converted[op])); // 新規変換で上書き
+  return [...map.values()];
+}
+function getOpData(op){
+  if(converted[op]) return converted[op];
+  if(baseFare){ const o=baseFare.operators.find(x=>x.operator===op); if(o) return o; }
+  return extraOperators.find(x=>x.operator===op)||null;
+}
+
+/* 同一駅グループの構築: 土台の既存グループを保持しつつ、同名スラッグ自動検出＋手動設定を Union-Find で統合 */
+function buildStationGroups(){
+  const present={};  // "op|slug" → true（出力対象の全事業者の駅）
+  const nameOf={};   // "op|slug" → 表示名
+  allOperatorObjects().forEach(o=>{
+    if(!Array.isArray(o.stations)) return;  // 距離帯（fare_tx）は駅グループ対象外
+    o.stations.forEach(s=>{
+      present[o.operator+"|"+s.slug]=true;
+      nameOf[o.operator+"|"+s.slug]=s.name;
+    });
+  });
+  const parent={};
+  const find=x=>{ while(parent[x]!==x) x=parent[x]=parent[parent[x]]; return x; };
+  const uni=(a,b)=>{
+    if(!(a in present)||!(b in present)) return;
+    parent[a]=parent[a]??a; parent[b]=parent[b]??b;
+    /* 初期化漏れ防止 */
+    if(parent[find_init(a)]===undefined) parent[a]=a;
+    const ra=find(a), rb=find(b);
+    if(ra!==rb) parent[ra]=rb;
+  };
+  const find_init=x=>{ if(parent[x]===undefined) parent[x]=x; return x; };
+  Object.keys(present).forEach(k=>parent[k]=k);
+
+  /* 土台fare.jsonの既存グループを先に統合（同名でない手動整備グループも保持） */
+  if(baseFare&&Array.isArray(baseFare.stationGroups)){
+    baseFare.stationGroups.forEach(g=>{
+      const ms=(g.members||[]).filter(m=>present[m.op+"|"+m.slug]);
+      for(let i=1;i<ms.length;i++) uni(ms[0].op+"|"+ms[0].slug, ms[i].op+"|"+ms[i].slug);
+    });
+  }
+
+  /* 手動整備分・除外の解釈（先に除外リストを得る） */
+  const parsed=parseManualGroups();
+  window.__groupErrs=parsed.errs;
+  const excluded=new Set(parsed.excludes||[]);
+  /* 自動: 同名スラッグが複数社局に存在 → 同一駅扱い候補（除外指定を尊重） */
+  const ops=allOperatorObjects().map(o=>o.operator);
+  if(ops.length>=2){
+    const slugOps={};
+    Object.keys(present).forEach(k=>{
+      if(excluded.has(k)) return;
+      const [op,slug]=k.split("|");
+      (slugOps[slug]=slugOps[slug]||[]).push(op);
+    });
+    for(const slug in slugOps){
+      const os=slugOps[slug];
+      for(let i=1;i<os.length;i++) uni(os[0]+"|"+slug, os[i]+"|"+slug);
+    }
+  }
+  parsed.groups.forEach(g=>{
+    const ms=g.members.filter(([op,slug])=>present[op+"|"+slug]);
+    for(let i=1;i<ms.length;i++) uni(ms[0][0]+"|"+ms[0][1], ms[i][0]+"|"+ms[i][1]);
+  });
+
+  /* コンポーネント抽出（2駅以上のみグループ化） */
+  const comp={};
+  Object.keys(present).forEach(k=>{ const r=find(k); (comp[r]=comp[r]||[]).push(k); });
+  const groups=[];
+  Object.values(comp).filter(m=>m.length>=2).forEach(m=>{
+    const members=m.map(k=>{ const [op,slug]=k.split("|"); return {op,slug,name:nameOf[k]}; })
+                   .sort((a,b)=>(a.op+a.slug).localeCompare(b.op+b.slug));
+    const id=members.map(x=>x.slug).join("-").toLowerCase();
+    groups.push({id,members,fareContinuous:true});
+  });
+  groups.sort((a,b)=>a.id.localeCompare(b.id));
+  return groups;
+}
+
+const OP_NAME_JA_BYKEY={
+  keikyu:"京浜急行電鉄", keio:"京王電鉄", seibu:"西武鉄道", sotetsu:"相模鉄道", tobu:"東武鉄道",
+  toei:"東京都交通局（都営地下鉄）", tokyometro:"東京地下鉄（東京メトロ）", tokyu:"東急電鉄",
+  odakyu:"小田急電鉄", mir:"つくばエクスプレス", yokohamamunicipal:"横浜市営地下鉄", yurikamome:"ゆりかもめ"
+};
+function normalizeOperatorNames(o){
+  if(!o) return o;
+  if(Array.isArray(o.stations)){
+    o.stations.forEach(s=>{ if(s.name===s.slug){ const j=jaName(s.slug); if(j) s.name=j; } });
+  }
+  /* operatorName が空 or ASCIIのみ（英語ID）の場合は辞書で補完 */
+  if(!o.operatorName || /^[\x00-\x7F]+$/.test(o.operatorName)){
+    const key=String(o.operator||"").toLowerCase();
+    if(OP_NAME_JA_BYKEY[key]) o.operatorName=OP_NAME_JA_BYKEY[key];
+  }
+  return o;
+}
+
+function buildFareJson(){
+  const groups=buildStationGroups();
+  let operators;
+  if(baseFare){
+    /* 土台の事業者順を維持しつつ、新規変換で同一operatorを上書き、パススルー・新規を末尾に追加 */
+    const map=new Map();
+    baseFare.operators.forEach(o=>map.set(o.operator,o));
+    extraOperators.forEach(o=>{ if(!map.has(o.operator)) map.set(o.operator,o); });
+    Object.keys(converted).sort().forEach(op=>map.set(converted[op].operator,converted[op]));
+    operators=[...map.values()];
+  }else{
+    operators=[...Object.keys(converted).sort().map(op=>converted[op]), ...extraOperators];
+  }
+  /* 土台・パススルー事業者にローマ字のまま残った駅名・事業者名を辞書で日本語へ補完 */
+  operators.forEach(normalizeOperatorNames);
+  return {
+    format:"fare",
+    version:2,
+    generated:new Date().toISOString().slice(0,10),
+    note: baseFare&&baseFare.note ? baseFare.note : "運賃計算はこのファイルのみで完結する（設計書v1.1 §12）。経路表示はroute.json（別ファイル・任意）",
+    operators,
+    stationGroups:groups,
+    /* 割引・オーバーライド・ルールは土台のものを保持（手動追加分を失わない） */
+    discounts: baseFare&&Array.isArray(baseFare.discounts) ? baseFare.discounts : DISCOUNTS_TABLE,
+    discountsNote: baseFare&&baseFare.discountsNote ? baseFare.discountsNote : "きっぷ・ICの乗継割引は接続駅と両側対象区間の条件付き（出典: 首都圏乗継割引設定全区間一覧 2026-03-14）。クレカ乗車に適用されるのはメトロ⇔都営70円のみ",
+    overrides: baseFare&&baseFare.overrides ? baseFare.overrides : {ic:[],cc:[]},
+    rule: baseFare&&baseFare.rule ? baseFare.rule : "社局跨ぎ運賃 = min over stationGroups接続点 (A社運賃 + B社運賃) − 割引。きっぷ・クレカ=cash列、IC=ic列。fareContinuous:trueのグループは乗換しても1乗車扱い"
+  };
+}
+
+/* クロス運賃の試算（fare.jsonのruleと同一ロジック・検算用） */
+function crossFare(fj,fromSlug,toSlug){
+  const moData=getOpData("tokyometro"), toData=getOpData("toei");
+  const m=moData?fareLookup(moData):null;
+  const t=toData?fareLookup(toData):null;
+  if(!m||!t) return null;
+  const cands=[];
+  const dm=m.get(fromSlug,toSlug); if(dm&&dm[0]>0) cands.push({cash:dm[0],ic:dm[1],via:"メトロのみ"});
+  const dt=t.get(fromSlug,toSlug); if(dt&&dt[0]>0) cands.push({cash:dt[0],ic:dt[1],via:"都営のみ"});
+  for(const g of fj.stationGroups){
+    const mM=g.members.filter(x=>x.op==="tokyometro"), mT=g.members.filter(x=>x.op==="toei");
+    for(const jm of mM) for(const jt of mT){
+      const a=m.get(fromSlug,jm.slug), b=t.get(jt.slug,toSlug);
+      if(a&&b&&a[0]>0&&b[0]>0) cands.push({cash:a[0]+b[0]-70,ic:a[1]+b[1]-70,via:`メトロ→${jm.name}→都営`});
+      const c=t.get(fromSlug,jt.slug), d=m.get(jm.slug,toSlug);
+      if(c&&d&&c[0]>0&&d[0]>0) cands.push({cash:c[0]+d[0]-70,ic:c[1]+d[1]-70,via:`都営→${jt.name}→メトロ`});
+    }
+  }
+  if(!cands.length) return null;
+  cands.sort((x,y)=>x.cash-y.cash||x.ic-y.ic);
+  return {best:cands[0],candidates:cands.length};
+}
+
+function renderFareCard(resEl){
+  const fj=buildFareJson();
+  const jsonStr=JSON.stringify(fj);
+  const nCross=fj.stationGroups.filter(g=>new Set(g.members.map(m=>m.op)).size>=2).length;
+  const nIntra=fj.stationGroups.length-nCross;
+
+  let sampleHtml="";
+  if(getOpData("tokyometro")&&getOpData("toei")){
+    const samples=[["Kudanshita","ShirokaneTakanawa"],["Otemachi","Mita"],["Jimbocho","Meguro"]];
+    for(const [f,to] of samples){
+      const r=crossFare(fj,f,to);
+      if(r) sampleHtml+=`<div class="check"><span class="ok">検算</span> ${f} → ${to}: きっぷ/クレカ ${r.best.cash}円・IC ${r.best.ic}円（${r.best.via}、候補${r.candidates}経路）</div>`;
+    }
+    if(!sampleHtml) sampleHtml=`<div class="check"><span class="ng">⚠ 検算サンプル駅がデータに含まれていません（部分データの可能性）</span></div>`;
+  }
+
+  const opNames=fj.operators.map(o=>o.operatorName||o.operator).join("＋");
+  const div=document.createElement("div");
+  div.className="op-card";
+  div.style.border="2px solid var(--blue)";
+  div.innerHTML=`
+    <div class="op-head">
+      <div class="op-name">fare.json ${baseFare?"追加統合":"統合"}出力（v2）</div>
+      <button class="dl-btn">⬇ fare.json</button>
+    </div>
+    <div class="stats">
+      <div class="stat"><b>${fj.operators.length}</b>事業者<br><span style="font-size:10px;">${opNames}</span></div>
+      <div class="stat"><b>${nCross}</b>社局跨ぎ同一駅グループ</div>
+      <div class="stat"><b>${nIntra}</b>社局内同一駅グループ</div>
+      <div class="stat"><b>${fj.discounts.length}</b>割引ルール</div>
+      <div class="stat"><b>${(jsonStr.length/1024).toFixed(0)}KB</b>出力サイズ</div>
+    </div>
+    ${baseFare?`<div class="check"><span class="ok">✓ 土台fare.jsonを保持: 既存${baseFare.operators.length}事業者・割引${(baseFare.discounts||[]).length}件・同一駅グループ${(baseFare.stationGroups||[]).length}件を引き継ぎ、新規${Object.keys(converted).length}事業者を追加</span></div>`:""}
+    <div class="check"><span class="ok">✓ stationGroups同梱: 土台の既存グループ＋同名スラッグ自動検出＋手動グループを統合</span></div>
+    ${(window.__groupErrs&&window.__groupErrs.length)?`<div class="check"><span class="ng">⚠ グループ設定の解釈エラー: ${window.__groupErrs.join(" ／ ")}</span></div>`:""}
+    <div class="check"><span class="ok">✓ 運賃計算はfare.json単体で完結（route.jsonは表示専用・別出力）</span></div>
+    ${sampleHtml}
+    <details><summary>stationGroupsを表示</summary><pre>${fj.stationGroups.map(g=>g.id+": "+g.members.map(m=>`[${m.op==="tokyometro"?"M":m.op==="toei"?"都":m.op}]${m.name}`).join(" ≒ ")).join("\n").replace(/</g,"&lt;")}</pre></details>`;
+  div.querySelector(".dl-btn").onclick=()=>download("fare.json",jsonStr,"application/json");
+  resEl.appendChild(div);
+}
+
+/* グループ設定テキストエリアの初期化 */
+(function(){ const ta=document.getElementById("groups-input"); if(ta) ta.value=DEFAULT_GROUPS_TEXT; })();
+
+function download(name,content,type){
+  const blob=new Blob([content],{type:type+";charset=utf-8"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);
+  a.download=name;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+</script>
+</body>
+</html>

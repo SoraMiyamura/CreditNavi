@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>クレカ乗車運賃ナビ</title>
 <style>
   :root{
@@ -35,7 +35,7 @@
   }
   .scroll{
     flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;
-    padding:0 max(16px,calc((100% - 640px)/2)) 110px max(16px,calc((100% - 640px)/2));
+    padding:0 max(16px,calc((100% - 640px)/2)) calc(110px + env(safe-area-inset-bottom,0px)) max(16px,calc((100% - 640px)/2));
   }
   .navbar-large{padding:16px 16px 0 16px;}
   .large-title{font-size:34px;font-weight:700;color:var(--label);padding:8px 0 12px 0;letter-spacing:0.2px;}
@@ -53,7 +53,7 @@
   }
   .navbar .back svg{margin-right:3px;}
   .navbar .back:active{opacity:.4;}
-  .pushed-scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:68px max(16px,calc((100% - 640px)/2)) 60px max(16px,calc((100% - 640px)/2));}
+  .pushed-scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:68px max(16px,calc((100% - 640px)/2)) calc(60px + env(safe-area-inset-bottom,0px)) max(16px,calc((100% - 640px)/2));}
   .mini-nav{
     position:absolute;top:0;left:0;right:0;height:52px;z-index:150;
     background:rgba(242,242,247,.82);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
@@ -138,7 +138,7 @@
   .via-sta{font-weight:600;}
   .via-arrow{color:var(--label2);font-weight:300;}
   .rc-fares{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;}
-  .fare-pill{font-size:15px;padding:6px 11px;border-radius:7px;background:var(--bg);color:var(--label2);white-space:nowrap;}
+  .fare-pill{font-size:15px;padding:6px 11px;border-radius:7px;background:var(--bg);color:var(--label2);}
   .fare-pill b{color:var(--label);font-weight:600;}
   .fare-pill.cc{background:rgba(0,122,255,.12);color:var(--blue);}
   .fare-pill.cc b{color:var(--blue);}
@@ -150,8 +150,8 @@
   .fare-row{padding:13px 16px;position:relative;background:var(--card);}
   .fare-row:not(:last-child)::after{content:"";position:absolute;left:16px;right:0;bottom:0;height:0.5px;background:var(--sep);}
   .fare-row .fr-line{display:flex;align-items:baseline;justify-content:space-between;}
-  .fr-name{font-size:17px;color:var(--label);min-width:0;}
-  .fr-amount{font-size:20px;font-weight:600;color:var(--label);font-variant-numeric:tabular-nums;white-space:nowrap;flex-shrink:0;padding-left:10px;}
+  .fr-name{font-size:17px;color:var(--label);}
+  .fr-amount{font-size:20px;font-weight:600;color:var(--label);font-variant-numeric:tabular-nums;}
   .fare-row.cc-row{background:rgba(0,122,255,.06);}
   .fare-row.cc-row .fr-name{color:var(--blue);font-weight:600;}
   .fare-row.cc-row .fr-amount{color:var(--blue);}
@@ -171,12 +171,14 @@
   .leg-cell{display:flex;align-items:center;min-height:44px;padding:10px 16px;position:relative;background:var(--card);}
   .leg-cell:not(:last-child)::after{content:"";position:absolute;left:16px;right:0;bottom:0;height:0.5px;background:var(--sep);}
   .op-badge{font-size:11px;font-weight:600;color:#fff;border-radius:4px;padding:2px 6px;margin-right:10px;flex-shrink:0;}
-  .leg-sec{font-size:15px;color:var(--label);flex:1;min-width:0;}
-  .leg-fare{font-size:15px;color:var(--label2);font-variant-numeric:tabular-nums;white-space:nowrap;flex-shrink:0;padding-left:10px;}
+  .leg-sec{font-size:15px;color:var(--label);flex:1;}
+  .leg-fare{font-size:15px;color:var(--label2);font-variant-numeric:tabular-nums;}
   .tabbar{
-    position:absolute;bottom:0;left:0;right:0;height:64px;z-index:500;
+    position:absolute;bottom:0;left:0;right:0;
+    height:calc(64px + env(safe-area-inset-bottom,0px));box-sizing:border-box;z-index:500;
     background:rgba(249,249,249,.85);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
-    border-top:0.5px solid var(--sep);display:flex;justify-content:center;padding-top:7px;
+    border-top:0.5px solid var(--sep);display:flex;justify-content:center;
+    padding-top:7px;padding-bottom:env(safe-area-inset-bottom,0px);
   }
   .tab{
     flex:1;max-width:180px;display:flex;flex-direction:column;align-items:center;gap:3px;
@@ -277,8 +279,6 @@
   .fare-pill.blocked b{color:var(--red);}
   .ic-net-line{font-size:12px;color:var(--label2);margin-top:5px;}
   .ic-net-line b{color:var(--label);font-weight:600;}
-  .cap-line{display:flex;align-items:center;gap:6px;margin-top:6px;font-size:12px;color:#b36a00;font-weight:600;}
-  .cap-line svg{flex-shrink:0;}
   .warn-box{
     display:flex;align-items:flex-start;gap:9px;
     background:#FFF8E1;border:1px solid #FFE082;border-radius:10px;
@@ -609,7 +609,7 @@ function buildRoutesTX(i,j){
   const b=DATA.bands[bi];
   return [{
     via:[{sym:LINE.symbol,name:LINE.name,color:LINE.color}],
-    cash:b.cash, ic:b.ic, cc:b.cash, tobuFare:0, opKeys:["mir"],
+    cash:b.cash, ic:b.ic, cc:b.cash, tobuFare:0,
     legs:[{op:"つくばエクスプレス",color:LINE.color,sec:`${STS[i].name} → ${STS[j].name}`,fare:b.cash}],
     notes:[
       "クレカ乗車運賃は現金（きっぷ）運賃と同額です。",
@@ -684,24 +684,15 @@ function buildRoutesBundle(i,j){
   return out;
 }
 
-/* クレカ乗車の区間運賃: 横浜市営地下鉄はIC運賃（1円単位）、他はきっぷ運賃（10円単位） */
-function ccFareOf(op, v){ return op==="yokohamamunicipal" ? v[1] : v[0]; }
-/* 1日上限サービス（タッチ決済）: 事業者ごとの上限額 */
-const DAILY_CAP={
-  yokohamamunicipal:{name:"横浜市営地下鉄", cap:740},
-  yurikamome:{name:"ゆりかもめ", cap:820}
-};
-
 function single(op,v,f,t){
   const o=opStyle(op);
-  const ccf=ccFareOf(op,v);
   const notes=["クレカ乗車運賃は10円単位きっぷ運賃と同額です（同一社局内・割引なし）。"];
   if(f.ops.length>1&&t.ops.length>1)
     notes.push("出発・到着とも複数社局に存在する駅のため、実際の改札処理では実乗車経路に関わらず最安経路でみなし計算される可能性があります。");
-  return {kind:"single", key:"s|"+op, opFrom:op, opTo:op, opKeys:[op], tobuFare:(op==="tobu"?v[0]:0),
+  return {kind:"single", key:"s|"+op, opFrom:op, opTo:op, tobuFare:(op==="tobu"?v[0]:0),
     via:[{sym:o.sym,name:o.name,color:o.color}],
-    cash:v[0], ic:v[1], cc:ccf,
-    legs:[{op:o.name,color:o.color,sec:`${f.name} → ${t.name}`,fare:ccf}],
+    cash:v[0], ic:v[1], cc:v[0],
+    legs:[{op:o.name,color:o.color,sec:`${f.name} → ${t.name}`,fare:v[0]}],
     notes};
 }
 
@@ -710,10 +701,9 @@ function cross(opA,opB,a,b,ja,jb,f,t){
   const d=discountsFor(opA,opB,f.slug,t.slug,ja,jb);
   const jNameA=LUS[opA].name(ja), jNameB=LUS[opB].name(jb);
   const jDisp=jNameA===jNameB?jNameA:`${jNameA}（${jNameB}）`;
-  const ccfA=ccFareOf(opA,a), ccfB=ccFareOf(opB,b);
   const legs=[
-    {op:A.name,color:A.color,sec:`${f.name} → ${jNameA}`,fare:ccfA},
-    {op:B.name,color:B.color,sec:`${jNameB} → ${t.name}`,fare:ccfB}
+    {op:A.name,color:A.color,sec:`${f.name} → ${jNameA}`,fare:a[0]},
+    {op:B.name,color:B.color,sec:`${jNameB} → ${t.name}`,fare:b[0]}
   ];
   const notes=[];
   if(d.cc>0){
@@ -731,9 +721,9 @@ function cross(opA,opB,a,b,ja,jb,f,t){
   }
   notes.push(`接続駅は運賃が最安となる ${jDisp} を自動選択しています。`);
   notes.push("IC運賃は各社IC運賃の合算"+(d.ic>0?`−${d.ic}円`:"")+"による推定値です。実際のみなし計算と異なる場合があります。");
-  return {kind:"cross", key:`x|${opA}|${opB}|${ja}|${jb}`, opFrom:opA, opTo:opB, opKeys:[opA,opB], tobuFare:((opA==="tobu"?a[0]:0)+(opB==="tobu"?b[0]:0)),
+  return {kind:"cross", key:`x|${opA}|${opB}|${ja}|${jb}`, opFrom:opA, opTo:opB, tobuFare:((opA==="tobu"?a[0]:0)+(opB==="tobu"?b[0]:0)),
     via:[{sym:A.sym,name:A.name,color:A.color},{sta:jDisp},{sym:B.sym,name:B.name,color:B.color}],
-    cash:a[0]+b[0]-d.cash, ic:a[1]+b[1]-d.ic, cc:ccfA+ccfB-d.cc,
+    cash:a[0]+b[0]-d.cash, ic:a[1]+b[1]-d.ic, cc:a[0]+b[0]-d.cc,
     legs, notes};
 }
 
@@ -806,7 +796,7 @@ function dijkstraPath(f,t,rel,xfer,metric){
 
 function routeFromLegs(legList){
   if(!legList||!legList.length) return null;
-  let cashSum=0, icSum=0, ccSum=0, cashDisc=0, icDisc=0, ccDisc=0, tobuSum=0;
+  let cashSum=0, icSum=0, cashDisc=0, icDisc=0, ccDisc=0, tobuSum=0;
   const via=[], disp=[], notes=[];
   let hasCcDisc=false, hasNonCcDisc=false;
   for(let k=0;k<legList.length;k++){
@@ -814,7 +804,6 @@ function routeFromLegs(legList){
     const a=LUS[L.op].get(L.from,L.to);
     if(!a||a[0]<=0) return null;
     cashSum+=a[0]; icSum+=a[1];
-    const ccf=ccFareOf(L.op,a); ccSum+=ccf;
     if(L.op==="tobu") tobuSum+=a[0];
     const fromName=LUS[L.op].name(L.from), toName=LUS[L.op].name(L.to);
     if(k>0){
@@ -827,7 +816,7 @@ function routeFromLegs(legList){
       if(dsc.cash>dsc.cc||dsc.ic>dsc.cc) hasNonCcDisc=true;
     }
     via.push({sym:st.sym,name:st.name,color:st.color});
-    disp.push({op:st.name,color:st.color,sec:`${fromName} → ${toName}`,fare:ccf});
+    disp.push({op:st.name,color:st.color,sec:`${fromName} → ${toName}`,fare:a[0]});
   }
   notes.push(`${legList.length}社局を乗り継ぐ経路です。接続駅は運賃が最安となる駅を自動選択しています。`);
   if(hasCcDisc) notes.push("メトロ⇔都営の連絡割引（−70円）はきっぷ・IC・クレカのすべてに適用されます。");
@@ -836,8 +825,7 @@ function routeFromLegs(legList){
   return {kind:"multi",
     key:"m|"+legList.map(L=>L.op+":"+L.from+">"+L.to).join("|"),
     opFrom:legList[0].op, opTo:legList[legList.length-1].op,
-    opKeys:[...new Set(legList.map(L=>L.op))],
-    via, cash:cashSum-cashDisc, ic:icSum-icDisc, cc:ccSum-ccDisc, tobuFare:tobuSum,
+    via, cash:cashSum-cashDisc, ic:icSum-icDisc, cc:cashSum-ccDisc, tobuFare:tobuSum,
     legs:disp, notes};
 }
 
@@ -853,6 +841,38 @@ const CARDS=[
   {id:"jcbw",   name:"JCB CARD W",              base:1.0, touch:9.5, grad:"linear-gradient(135deg,#1e6fae,#39a7d8)"},
   {id:"other",  name:"その他のクレカ",            base:null, touch:0, custom:true, grad:"linear-gradient(135deg,#3a3a3c,#6e6e73)"}
 ];
+/* ---------- ローカル保存（履歴・選択カード・還元率） ---------- */
+const LS_KEYS={
+  history:"crekaFareNavi.history.v1",
+  cardId:"crekaFareNavi.cardId.v1",
+  customRate:"crekaFareNavi.customRate.v1",
+  icRate:"crekaFareNavi.icRate.v1"
+};
+function loadPersisted(){
+  try{
+    const h=localStorage.getItem(LS_KEYS.history);
+    if(h){ const arr=JSON.parse(h); if(Array.isArray(arr)) history=arr; }
+  }catch(e){}
+  try{
+    const cid=localStorage.getItem(LS_KEYS.cardId);
+    if(cid && CARDS.some(c=>c.id===cid)) selectedCardId=cid;
+  }catch(e){}
+  try{
+    const cr=localStorage.getItem(LS_KEYS.customRate);
+    if(cr!==null){ const v=parseFloat(cr); if(!isNaN(v)) customRate=v; }
+  }catch(e){}
+  try{
+    const ir=localStorage.getItem(LS_KEYS.icRate);
+    if(ir!==null){ const v=parseFloat(ir); if(!isNaN(v)) icRate=v; }
+  }catch(e){}
+}
+function saveHistory(){ try{ localStorage.setItem(LS_KEYS.history, JSON.stringify(history)); }catch(e){} }
+function saveCard(){ try{ localStorage.setItem(LS_KEYS.cardId, selectedCardId); localStorage.setItem(LS_KEYS.customRate, String(customRate)); }catch(e){} }
+function saveIcRate(){ try{ localStorage.setItem(LS_KEYS.icRate, String(icRate)); }catch(e){} }
+function clearHistory(){
+  showAlert("履歴を削除","検索履歴をすべて削除します。よろしいですか？",
+    [{label:"キャンセル"},{label:"削除",bold:true,onTap:()=>{ history=[]; saveHistory(); renderHistory(); }}]);
+}
 let fromIdx=null, toIdx=null, pickTarget="from";
 let selectedCardId="smccnl", customRate=1.0;
 let icRate=0.5;  /* 交通系ICのポイント還元率（%・0.1%単位・ユーザー設定） */
@@ -1088,8 +1108,6 @@ function openDetail(i){
   if(!ccBlock && r.tobuFare>0 && card.touch>0){
     notes = [`東武鉄道はタッチ決済乗車の上乗せ還元（+${card.touch}%）の対象外です。東武区間 ${r.tobuFare}円 は基本還元 ${card.base}% のみ、残り ${r.cc-r.tobuFare}円 に上乗せを適用して計算しています。`, ...notes];
   }
-  const capList=(r.opKeys||[]).filter(op=>DAILY_CAP[op]).map(op=>DAILY_CAP[op]);
-  const capHtml=capList.map(cp=>`<div class="cap-line"><svg width="13" height="13" viewBox="0 0 13 13"><circle cx="6.5" cy="6.5" r="6" fill="#FF9500" opacity=".18"/><path d="M6.5 3 L6.5 7 M6.5 9 L6.5 9.4" stroke="#c47a00" stroke-width="1.5" stroke-linecap="round"/></svg>1日上限サービスあり：${cp.name} ${cp.cap}円</div>`).join("");
   const ccRow = ccBlock
     ? `<div class="fare-row cc-blocked">
         <div class="fr-line"><div class="fr-name">クレカ乗車</div><div class="fr-amount cc-unavail">ご利用できません</div></div>
@@ -1101,7 +1119,6 @@ function openDetail(i){
           <span class="pt-sub" style="margin-right:4px;">（${card.name}）</span><svg width="14" height="14" viewBox="0 0 14 14"><circle cx="7" cy="7" r="6.5" fill="#34C759"/><path d="M7 3.5 L7 10.5 M3.5 7 L10.5 7" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/></svg>${fmtPt(c.pt)}pt 獲得
         </div>
         <div class="net-line">実質負担 <b>${fmtYen(c.ccNet)}円</b></div>
-        ${capHtml}
       </div>`;
   const arriveBlk = CC_DEPART_BLOCK.find(b=> currentOD.toSt && currentOD.toSt.slug===b.slug && currentOD.toSt.ops && currentOD.toSt.ops.includes(b.op));
   const arriveWarn = arriveBlk ? `
@@ -1131,6 +1148,7 @@ function openDetail(i){
     <div class="footnote">${notes.map(n=>"・"+n).join("<br>")}</div>`;
   history.unshift({from:currentOD.from,to:currentOD.to,via:viaText(r.via, currentOD.from, currentOD.to),cc: ccBlock?null:r.cc, pt: ccBlock?0:c.pt, card:card.name, blocked:!!ccBlock});
   if(history.length>30) history.pop();
+  saveHistory();
   pushScreen("scr-detail");
 }
 
@@ -1160,7 +1178,8 @@ function renderHistory(){
             : `<div class="hist-fare">${h.cc}円</div><div class="hist-ptv">＋${fmtPt(h.pt)}pt</div>`}
         </div>
       </div>`).join("")+`</div>
-    <div class="footnote">履歴はメモリ内にのみ保持され、リロードで消えます。</div>`;
+    <button class="primary-btn" style="background:var(--red);" onclick="clearHistory()">履歴をすべて削除</button>
+    <div class="footnote">履歴はこの端末に保存され、次回起動時にも表示されます。</div>`;
 }
 
 /* =========================================================
@@ -1183,7 +1202,7 @@ function openIcRate(){
   showAlert("交通系ICの還元率を入力","交通系IC利用時（チャージ等）のポイント還元率（%）を0.1%単位で入力してください。",
     [{label:"キャンセル"},{label:"設定",bold:true,onTap:()=>{
       const v=parseFloat(document.getElementById("alert-input").value);
-      if(!isNaN(v)&&v>=0&&v<=100){ icRate=Math.round(v*10)/10; renderIcRate(); }
+      if(!isNaN(v)&&v>=0&&v<=100){ icRate=Math.round(v*10)/10; saveIcRate(); renderIcRate(); }
     }}], true);
 }
 function renderCards(){
@@ -1201,7 +1220,7 @@ function renderCards(){
       <div class="rate-badge">${sel?`<svg width="18" height="14" viewBox="0 0 18 14"><path d="M2 7.5 L7 12.5 L16 1.5" stroke="#007AFF" stroke-width="2.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>`:""}</div>`;
     b.onclick=()=>{
       if(c.custom){ openCustomRate(); }
-      else{ selectedCardId=c.id; renderCards(); updateBanner(); }
+      else{ selectedCardId=c.id; saveCard(); renderCards(); updateBanner(); }
     };
     list.appendChild(b);
   });
@@ -1212,7 +1231,7 @@ function openCustomRate(){
   showAlert("還元率を入力","「その他のクレカ」の還元率（基本還元率・%）を入力してください。タッチ決済の上乗せは加算されません。",
     [{label:"キャンセル"},{label:"設定",bold:true,onTap:()=>{
       const v=parseFloat(document.getElementById("alert-input").value);
-      if(!isNaN(v)&&v>=0&&v<=100){ customRate=v; selectedCardId="other"; renderCards(); updateBanner(); }
+      if(!isNaN(v)&&v>=0&&v<=100){ customRate=v; selectedCardId="other"; saveCard(); renderCards(); updateBanner(); }
     }}], true);
 }
 function updateBanner(){
@@ -1243,6 +1262,12 @@ function showAlert(title,msg,btns,withInput){
   if(withInput) setTimeout(()=>input.focus(),100);
 }
 
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=>{
+    navigator.serviceWorker.register('sw.js').catch(()=>{ /* オフライン非対応環境は無視 */ });
+  });
+}
+loadPersisted();
 boot();
 </script>
 </body>
