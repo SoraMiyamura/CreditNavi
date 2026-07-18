@@ -448,7 +448,12 @@ const OP_STYLE={
   keikyu:    {sym:"KK", name:"京急電鉄", color:"#00A7E3"},
   sotetsu:   {sym:"SO", name:"相模鉄道", color:"#0A234F"},
   odakyu:    {sym:"OE", name:"小田急電鉄", color:"#2288CC"},
-  minatomirai:{sym:"MM", name:"横浜高速鉄道", color:"#09357F"}
+  minatomirai:{sym:"MM", name:"みなとみらい線", color:"#09357F"},
+  /* 事業者キーが日本語/独自IDのもの（fare.jsonのoperator値に一致させる） */
+  "横浜高速鉄道みなとみらい線":{sym:"MM", name:"みなとみらい線", color:"#09357F"},
+  mir:              {sym:"TX", name:"つくばエクスプレス", color:"#000080"},
+  yokohamamunicipal:{sym:"横浜市営", name:"横浜市営地下鉄", color:"#006BF0"},
+  yurikamome:       {sym:"U",  name:"ゆりかもめ", color:"#27404C"}
 };
 function romajiOf(st){
   if(MODE==="tx"||!st||!st.slug||/[぀-鿿ぁ-ヶ]/.test(st.slug)) return "";
