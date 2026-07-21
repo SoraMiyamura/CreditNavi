@@ -315,13 +315,19 @@ function restoreRangeIn(bodyEl){
   }
 }
 function handleBodyKeydown(e){
-  /* Enter単独: 段落区切りとして常に同じ間隔（<br><br>）を挿入する。
-     ブラウザ標準のEnter処理に任せると、ブラウザによって<p>/<div>/<br>が
-     まちまちに生成され、段落間隔がバラバラになる問題があったための対応。
-     Shift+Enterは通常のブラウザ標準動作（単一の改行）のまま。 */
+  /* Enter単独: ブラウザ標準の「改行だけを挿入する」コマンド（insertLineBreak、
+     Shift+Enterで使われているのと同じ内蔵処理）を明示的に呼ぶ。
+     素のEnter処理に任せると、ブラウザによって<p>/<div>/<br>がまちまちに
+     生成され段落間隔がバラバラになる問題があったが、insertLineBreakは常に
+     <br>を1つ挿入する処理で統一されており、文末での改行も含めてブラウザの
+     ネイティブな改行実装（Shift+Enterと同じもの）に任せられるため、
+     手作りのカーソル操作より確実に動作する。
+     重要: 日本語入力（IME）で変換候補を確定する際のEnterまで横取りしない
+     よう、変換中（isComposing）は何もせずブラウザ標準の処理に任せる。 */
+  if(e.isComposing || e.keyCode === 229) return;
   if(e.key === "Enter" && !e.shiftKey){
     e.preventDefault();
-    document.execCommand("insertHTML", false, "<br>");
+    document.execCommand("insertLineBreak");
   }
 }
 function execBold(btn){
