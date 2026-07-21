@@ -30,7 +30,12 @@ self.addEventListener("activate", event => {
 self.addEventListener("fetch", event => {
   const req = event.request;
   if (req.method !== "GET") return;
-  if (new URL(req.url).origin !== self.location.origin) return;
+  const url = new URL(req.url);
+  if (url.origin !== self.location.origin) return;
+  /* お知らせ(notices.json)は常にオンライン時の最新内容を取得したいため、
+     このキャッシュ層（stale-while-revalidate）の対象から除外する。
+     ここでrespondWithしなければブラウザの通常のfetchにフォールバックする。 */
+  if (url.pathname.endsWith("/notices.json")) return;
 
   event.respondWith(
     caches.match(req).then(cached => {

@@ -332,6 +332,29 @@
   }
   .warn-box svg{flex-shrink:0;margin-top:1px;}
   .warn-box b{color:#7a5f00;font-weight:600;}
+
+  /* お知らせ */
+  .notice-box{
+    display:flex;align-items:center;width:100%;background:var(--card);border-radius:10px;
+    padding:11px 14px;margin:0 0 14px 0;border:none;cursor:pointer;font-family:inherit;
+    text-align:left;
+  }
+  .notice-box:active{background:#D1D1D6;}
+  .notice-label{font-size:13px;font-weight:600;color:var(--blue);margin-right:10px;flex-shrink:0;}
+  .notice-summary-wrap{flex:1;overflow:hidden;position:relative;height:19px;}
+  .notice-summary{
+    position:absolute;left:0;right:0;top:0;font-size:14px;color:var(--label);
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+    opacity:1;transition:opacity .3s;
+  }
+  .notice-summary.fade{opacity:0;}
+  .notice-box .chevron{margin-left:8px;flex-shrink:0;}
+  .notice-thumb{width:120px;aspect-ratio:16/9;object-fit:contain;border-radius:8px;margin-right:14px;flex-shrink:0;background:var(--bg);}
+  .notice-list-title{font-size:15px;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+  .notice-detail-thumb{width:100%;aspect-ratio:16/9;object-fit:contain;background:var(--bg);border-radius:12px;margin-bottom:16px;display:block;}
+  .notice-body{font-size:15px;line-height:1.6;color:var(--label);}
+  .notice-body p{margin:0 0 8px 0;}
+  .notice-body img{max-width:100%;border-radius:10px;display:block;margin:12px 0;}
 </style>
 </head>
 <body>
@@ -356,6 +379,11 @@
         </button>
       </div>
       <div class="footnote" style="padding:0 4px 12px 4px;" id="data-source"></div>
+      <button class="notice-box" id="notice-box" style="display:none;" onclick="openNotices()">
+        <span class="notice-label">お知らせ</span>
+        <span class="notice-summary-wrap"><span class="notice-summary" id="notice-summary"></span></span>
+        <svg class="chevron" width="8" height="14" viewBox="0 0 8 14"><path d="M1 1 L7 7 L1 13" stroke="#C7C7CC" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
       <div class="route-input-card">
         <button class="history-btn" onclick="openSearchHistory()" aria-label="検索履歴">
           <svg width="22" height="22" viewBox="0 0 26 26"><circle cx="13" cy="13" r="10" stroke="currentColor" stroke-width="2" fill="none"/><path d="M13 7 L13 13 L17.5 15.5" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -461,6 +489,30 @@
     <div class="pushed-scroll" id="app-info-body"></div>
   </div>
 
+  <!-- NOTICES LIST -->
+  <div class="screen pushed" id="scr-notices">
+    <div class="navbar">
+      <button class="back" onclick="popScreen('scr-notices')">
+        <svg width="12" height="20" viewBox="0 0 12 20"><path d="M10 2 L3 10 L10 18" stroke="#007AFF" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        検索
+      </button>
+      <div class="nav-title">お知らせ</div>
+    </div>
+    <div class="pushed-scroll" id="notices-list-body"></div>
+  </div>
+
+  <!-- NOTICE DETAIL -->
+  <div class="screen pushed" id="scr-notice-detail">
+    <div class="navbar">
+      <button class="back" onclick="popScreen('scr-notice-detail')">
+        <svg width="12" height="20" viewBox="0 0 12 20"><path d="M10 2 L3 10 L10 18" stroke="#007AFF" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        お知らせ
+      </button>
+      <div class="nav-title">お知らせ</div>
+    </div>
+    <div class="pushed-scroll" id="notice-detail-body"></div>
+  </div>
+
   <!-- tab bar -->
   <div class="tabbar" id="tabbar">
     <button class="tab active" onclick="switchTab(0)" id="tab-0">
@@ -527,6 +579,10 @@ let LUS={};             // operator → 運賃lookup
 let GROUPS=[];          // stationGroups（存在する事業者のみ）
 let DISCOUNTS=[];       // 割引テーブル
 let LINE=null;          // tx用
+const APP_VERSION="2026-07-21"; // デプロイ毎に手動更新（notices.jsonのlatestVersionと比較して更新案内を出す）
+let NOTICES=[];          // お知らせ一覧（先頭に更新案内が入る場合あり）
+let noticeRotateTimer=null;
+let noticeRotateIdx=0;
 
 /* 事業者の表示スタイル（未知の事業者はグレーで自動生成） */
 const OP_STYLE={
@@ -586,6 +642,7 @@ function initData(json){
   document.getElementById("loader").classList.add("hidden");
   updateBanner();
   renderCards();
+  loadNotices();
 }
 
 /* ---------- 運賃lookup（インポータと同一ロジック） ---------- */
@@ -879,9 +936,27 @@ function cross(opA,opB,a,b,ja,jb,f,t){
 }
 
 /* =========================================================
-   3社以上跨ぎ: ダイクストラ法（接続点=stationGroups）
-   1〜2社は既存ロジックが担当するため、3社以上のみ返す
+   3社以上跨ぎ: 脚数（乗車回数）ごとの最安経路を探索
+   （接続点=stationGroups）。1〜2社は既存ロジックが担当する
+   ため、3社以上のみ返す。
+   旧実装は単純Dijkstraで「全体最安の経路1本」だけを探して
+   いたため、それが2社以内で完結する経路だった場合、脚数の
+   多い代替経路（例: 東急→東京メトロ→都営地下鉄 経由）が
+   全体最安でない限り候補にすら上がらなかった。
+   状態に脚数(legs)を持たせて脚数ごとに最安値を独立に求め、
+   3脚・4脚それぞれの最安経路を漏らさず候補化する。
 ========================================================= */
+const MULTIHOP_MAX_LEGS = 4; /* 相鉄→東急→メトロ→都営 のような4社連結までカバー */
+
+function mergeConsecutiveSameOp(legs){
+  const merged=[];
+  for(const leg of legs){
+    const last=merged[merged.length-1];
+    if(last && last.op===leg.op){ last.to=leg.to; }
+    else{ merged.push({op:leg.op, from:leg.from, to:leg.to}); }
+  }
+  return merged;
+}
 function multiHopCandidates(f,t){
   const rel={};
   const add=(op,slug)=>{ if(LUS[op]&&LUS[op].has(slug)){ (rel[op]=rel[op]||new Set()).add(slug); } };
@@ -900,49 +975,61 @@ function multiHopCandidates(f,t){
   }
   const out=[], seen=new Set();
   for(const metric of [0,1]){
-    const legs=dijkstraPath(f,t,rel,xfer,metric);
-    if(legs && legs.length>=3){
-      const r=routeFromLegs(legs);
+    const byLegs=dijkstraByLegs(f,t,rel,xfer,metric);
+    for(const legsKey in byLegs){
+      if(Number(legsKey)<3) continue;
+      /* 同一社局への無駄な行ったり来たり（0円の乗換を挟んで同じ社局に
+         戻ってしまう等）で見かけ上の脚数が水増しされているケースがある
+         ため、連続する同一社局の区間は1区間にまとめ直してから採用する。
+         まとめた結果、実質2社以下に収束した場合はここでは扱わない
+         （single()/cross()側で既にカバーされている）。 */
+      const merged=mergeConsecutiveSameOp(byLegs[legsKey]);
+      if(merged.length<3) continue;
+      const r=routeFromLegs(merged);
       if(r && !seen.has(r.key)){ seen.add(r.key); out.push(r); }
     }
   }
   return out;
 }
 
-function dijkstraPath(f,t,rel,xfer,metric){
-  /* 状態キー: "op|slug|mode"  mode T=次に乗車可 / R=直前に乗車（次は乗換のみ） */
+function dijkstraByLegs(f,t,rel,xfer,metric){
+  /* 状態キー: "op|slug|mode|legs"  mode T=次に乗車可 / R=直前に乗車（次は乗換のみ） */
   const dist={}, prev={}, pq=[], visited={};
   const push=(key,d,p)=>{ if(dist[key]===undefined||d<dist[key]){ dist[key]=d; prev[key]=p; pq.push({key,d}); } };
-  f.ops.forEach(op=>{ if(rel[op]&&rel[op].has(f.slug)) push(op+"|"+f.slug+"|T",0,null); });
-  const isGoal=key=>{ const p=key.split("|"); return p[1]===t.slug && t.ops.includes(p[0]); };
-  let goalKey=null;
+  f.ops.forEach(op=>{ if(rel[op]&&rel[op].has(f.slug)) push(op+"|"+f.slug+"|T|0",0,null); });
+  const goalByLegs={};
   while(pq.length){
     let bi=0; for(let x=1;x<pq.length;x++) if(pq[x].d<pq[bi].d) bi=x;
     const cur=pq.splice(bi,1)[0];
     if(visited[cur.key]) continue;
     visited[cur.key]=true;
-    if(isGoal(cur.key)){ goalKey=cur.key; break; }
-    const parts=cur.key.split("|"), op=parts[0], slug=parts[1], mode=parts[2];
-    if(mode==="T" && rel[op]){
+    const parts=cur.key.split("|"), op=parts[0], slug=parts[1], mode=parts[2], legs=Number(parts[3]);
+    if(slug===t.slug && t.ops.includes(op) && legs>=1 && !(legs in goalByLegs)){
+      goalByLegs[legs]=cur.key;
+    }
+    if(legs<MULTIHOP_MAX_LEGS && mode==="T" && rel[op]){
       for(const s2 of rel[op]){
         if(s2===slug) continue;
         const fv=LUS[op].get(slug,s2);
         if(!fv||fv[0]<=0) continue;
-        push(op+"|"+s2+"|R", cur.d+fv[metric], cur.key);
+        push(op+"|"+s2+"|R|"+(legs+1), cur.d+fv[metric], cur.key);
       }
     }
     const xs=xfer[op+"|"+slug]||[];
-    for(const n of xs) push(n.op+"|"+n.slug+"|T", cur.d, cur.key);
+    for(const n of xs) push(n.op+"|"+n.slug+"|T|"+legs, cur.d, cur.key);
   }
-  if(!goalKey) return null;
-  const chain=[]; let k=goalKey;
-  while(k){ chain.unshift(k); k=prev[k]; }
-  const legs=[];
-  for(let x=1;x<chain.length;x++){
-    const a=chain[x-1].split("|"), b=chain[x].split("|");
-    if(a[0]===b[0] && a[1]!==b[1]) legs.push({op:a[0], from:a[1], to:b[1]});
+  const result={};
+  for(const legsKey in goalByLegs){
+    const chain=[]; let k=goalByLegs[legsKey];
+    while(k){ chain.unshift(k); k=prev[k]; }
+    const legPath=[];
+    for(let x=1;x<chain.length;x++){
+      const a=chain[x-1].split("|"), b=chain[x].split("|");
+      if(a[0]===b[0] && a[1]!==b[1]) legPath.push({op:a[0], from:a[1], to:b[1]});
+    }
+    result[legsKey]=legPath;
   }
-  return legs;
+  return result;
 }
 
 function routeFromLegs(legList){
@@ -1243,7 +1330,7 @@ function switchTab(i){
     document.getElementById(id).classList.toggle("root-active", idx===i);
   });
   for(let t=0;t<3;t++) document.getElementById("tab-"+t).classList.toggle("active", t===i);
-  ["scr-results","scr-detail"].forEach(id=>{
+  ["scr-results","scr-detail","scr-search-history","scr-app-info","scr-notices","scr-notice-detail"].forEach(id=>{
     const s=document.getElementById(id);
     s.classList.remove("in"); s.style.visibility="";
   });
@@ -1557,6 +1644,121 @@ function renderAppInfo(){
         <svg class="chevron" width="8" height="14" viewBox="0 0 8 14"><path d="M1 1 L7 7 L1 13" stroke="#C7C7CC" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </a>
     </div>`;
+}
+
+/* =========================================================
+   お知らせ（notices.json）
+   通常のfetchで直接取得し、Service Workerのキャッシュ層
+   （stale-while-revalidate）は経由しない＝常にオンライン時の
+   最新内容を取りにいく（sw.js側でnotices.jsonをfetchハンド
+   ラの対象外にしている）。取得に失敗した場合（オフライン等）
+   は何もせず、お知らせ欄は非表示のまま。
+   notices.json 形式:
+   {
+     "latestVersion": "YYYY-MM-DD",       // 省略可。APP_VERSIONと異なれば更新案内を自動表示
+     "updateSummary": "タップして更新",    // 省略可。更新案内のボックス表示文言
+     "notices": [
+       {
+         "id": "一意なID",
+         "date": "2026-07-20",            // 省略可
+         "title": "お知らせのタイトル",
+         "summary": "ボックスに表示する短い文言（省略時はtitleを使用）",
+         "thumbnail": "https://.../thumb.jpg", // 省略可。一覧・詳細冒頭に表示
+         "body": "<p>本文（HTML）。<img src=\"...\">のように文中に画像も埋め込み可。</p>"
+       }
+     ]
+   }
+========================================================= */
+async function loadNotices(){
+  try{
+    const res=await fetch("notices.json",{cache:"no-store"});
+    if(!res.ok) return;
+    const data=await res.json();
+    const list=Array.isArray(data.notices)?data.notices.slice():[];
+    if(data.latestVersion && data.latestVersion!==APP_VERSION){
+      list.unshift({
+        id:"__update__",
+        date:"",
+        title:"最新版があります",
+        summary:data.updateSummary||"タップして更新",
+        thumbnail:null,
+        body:"<p>クレカ乗車運賃ナビの最新版が公開されています。「更新する」をタップすると最新版を読み込みます。</p>",
+        isUpdate:true
+      });
+    }
+    NOTICES=list;
+    renderNoticeBox();
+  }catch(e){ /* オフライン等は無視 */ }
+}
+
+function renderNoticeBox(){
+  const box=document.getElementById("notice-box");
+  if(noticeRotateTimer){ clearInterval(noticeRotateTimer); noticeRotateTimer=null; }
+  if(!box) return;
+  if(!NOTICES.length){ box.style.display="none"; return; }
+  box.style.display="flex";
+  noticeRotateIdx=0;
+  showNoticeSummary(0);
+  if(NOTICES.length>1){
+    noticeRotateTimer=setInterval(()=>{
+      noticeRotateIdx=(noticeRotateIdx+1)%NOTICES.length;
+      showNoticeSummary(noticeRotateIdx);
+    },4000);
+  }
+}
+function showNoticeSummary(idx){
+  const el=document.getElementById("notice-summary");
+  const n=NOTICES[idx];
+  if(!n||!el) return;
+  el.classList.add("fade");
+  setTimeout(()=>{
+    el.textContent=n.summary||n.title||"";
+    el.classList.remove("fade");
+  },300);
+}
+
+function openNotices(){
+  renderNoticesList();
+  pushScreen("scr-notices");
+}
+function renderNoticesList(){
+  const c=document.getElementById("notices-list-body");
+  if(!NOTICES.length){ c.innerHTML=`<div class="footnote">現在お知らせはありません。</div>`; return; }
+  c.innerHTML=`<div class="group">`+NOTICES.map((n,idx)=>{
+    const thumb=n.thumbnail?`<img class="notice-thumb" src="${n.thumbnail}" alt="">`:"";
+    const titleStyle=n.isUpdate?"color:var(--blue);font-weight:600;":"";
+    return `<button class="cell" style="align-items:center;" onclick="openNoticeDetail(${idx})">
+        ${thumb}
+        <div style="flex:1;min-width:0;">
+          <div class="notice-list-title" style="${titleStyle}">${n.title||""}</div>
+          ${n.date?`<div style="font-size:12px;color:var(--label2);margin-top:4px;">${n.date}</div>`:""}
+        </div>
+        <svg class="chevron" width="8" height="14" viewBox="0 0 8 14"><path d="M1 1 L7 7 L1 13" stroke="#C7C7CC" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>`;
+  }).join("")+`</div>`;
+}
+
+function openNoticeDetail(idx){
+  const n=NOTICES[idx];
+  if(!n) return;
+  const c=document.getElementById("notice-detail-body");
+  const thumb=n.thumbnail?`<img class="notice-detail-thumb" src="${n.thumbnail}" alt="">`:"";
+  const updateBtn=n.isUpdate?`<button class="primary-btn" style="margin:16px 0;" onclick="applyAppUpdate()">更新する</button>`:"";
+  c.innerHTML=`
+    ${thumb}
+    <div class="large-title" style="font-size:22px;padding-bottom:4px;">${n.title||""}</div>
+    ${n.date?`<div class="footnote" style="padding:0 0 12px 0;">${n.date}</div>`:""}
+    <div class="notice-body">${n.body||""}</div>
+    ${updateBtn}
+  `;
+  pushScreen("scr-notice-detail");
+}
+
+function applyAppUpdate(){
+  if(typeof caches==="undefined"){ location.reload(); return; }
+  caches.keys().then(keys=>Promise.all(
+    keys.map(k=>caches.open(k).then(c=>Promise.all([c.delete("./index.html"),c.delete("./")])))
+  )).catch(()=>{}).finally(()=>location.reload());
 }
 
 /* =========================================================

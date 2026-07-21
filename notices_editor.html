@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>お知らせ編集ツール - クレカ乗車運賃ナビ</title>
+<style>
+  :root{
+    --blue:#007AFF; --green:#34C759; --red:#FF3B30; --orange:#FF9500;
+    --gray:#8E8E93; --gray3:#C7C7CC;
+    --bg:#F2F2F7; --card:#FFFFFF;
+    --sep:rgba(60,60,67,0.29);
+    --label:#000; --label2:rgba(60,60,67,0.6);
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{
+    background:var(--bg);
+    font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Hiragino Sans","Hiragino Kaku Gothic ProN",sans-serif;
+    letter-spacing:-0.3px;color:var(--label);
+  }
+  .wrap{max-width:760px;margin:0 auto;padding:28px 16px 100px 16px;}
+  h1{font-size:26px;font-weight:700;margin-bottom:4px;}
+  .subtitle{font-size:13px;color:var(--label2);margin-bottom:20px;line-height:1.6;}
+  .section-header{font-size:13px;color:var(--label2);padding:22px 4px 8px 4px;font-weight:600;}
+  .card{background:var(--card);border-radius:12px;padding:16px;}
+  .field{margin-bottom:14px;}
+  .field:last-child{margin-bottom:0;}
+  .field label{display:block;font-size:12.5px;color:var(--label2);margin-bottom:5px;}
+  .field label .req{color:var(--red);margin-left:2px;}
+  .field input[type=text],.field input[type=date]{
+    width:100%;border:1px solid var(--sep);border-radius:8px;padding:9px 11px;
+    font-size:14.5px;font-family:inherit;color:var(--label);background:#fff;
+  }
+  .field input[type=text]:focus,.field input[type=date]:focus{outline:2px solid var(--blue);border-color:var(--blue);}
+  .hint{font-size:11.5px;color:var(--label2);margin-top:4px;line-height:1.5;}
+
+  .primary-btn{
+    display:block;width:100%;margin-top:10px;background:var(--blue);color:#fff;
+    font-size:16px;font-weight:600;border:none;border-radius:12px;padding:14px;
+    cursor:pointer;font-family:inherit;transition:opacity .15s;
+  }
+  .primary-btn:active{opacity:.4;}
+  .primary-btn:disabled{background:var(--gray3);cursor:default;}
+  .ghost-btn{
+    background:rgba(0,122,255,.1);color:var(--blue);border:none;border-radius:8px;
+    padding:8px 13px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;
+  }
+  .ghost-btn:active{opacity:.4;}
+  .small-btn{
+    border:1px solid var(--sep);background:#fff;border-radius:7px;color:var(--label);
+    font-size:13px;padding:6px 10px;cursor:pointer;font-family:inherit;
+  }
+  .small-btn:active{opacity:.4;}
+  .small-btn.danger{color:var(--red);border-color:rgba(255,59,48,.4);}
+
+  /* file drop */
+  .drop{
+    border:2px dashed var(--gray3);border-radius:12px;background:var(--card);
+    padding:24px 20px;text-align:center;cursor:pointer;transition:all .15s;
+  }
+  .drop.over{border-color:var(--blue);background:rgba(0,122,255,.06);}
+  .drop .d-title{font-size:15px;font-weight:600;margin-bottom:4px;}
+  .drop .d-sub{font-size:12.5px;color:var(--label2);line-height:1.5;}
+  .drop input{display:none;}
+
+  /* notice card list */
+  #notice-list{display:flex;flex-direction:column;gap:14px;margin-top:12px;}
+  .notice-card{background:var(--card);border-radius:12px;padding:16px;}
+  .notice-card-head{display:flex;align-items:center;gap:8px;margin-bottom:14px;}
+  .notice-card-head .idx-badge{
+    width:24px;height:24px;border-radius:50%;background:var(--blue);color:#fff;
+    font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;
+  }
+  .notice-card-head .ctitle{flex:1;font-size:14px;font-weight:600;color:var(--label2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .update-flag-row{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--orange);font-weight:600;margin-bottom:10px;}
+
+  .thumb-row{display:flex;gap:8px;align-items:center;}
+  .thumb-row input[type=text]{flex:1;}
+  .upload-btn{
+    flex-shrink:0;border:1px solid var(--sep);background:#fff;border-radius:8px;
+    padding:9px 12px;font-size:13px;color:var(--label);cursor:pointer;white-space:nowrap;
+  }
+  .upload-btn:active{opacity:.4;}
+  .thumb-preview{
+    display:none;width:100%;aspect-ratio:16/9;object-fit:contain;border-radius:10px;margin-top:8px;background:var(--bg);
+  }
+
+  .editor-toolbar{display:flex;gap:6px;margin-bottom:6px;flex-wrap:wrap;}
+  .editor-toolbar button, .editor-toolbar .upload-btn{
+    border:1px solid var(--sep);background:#fff;border-radius:7px;font-size:12.5px;
+    padding:6px 10px;cursor:pointer;font-family:inherit;color:var(--label);
+  }
+  .editor-toolbar button:active, .editor-toolbar .upload-btn:active{opacity:.4;}
+
+  .notice-body{
+    min-height:110px;border:1px solid var(--sep);border-radius:8px;padding:10px 12px;
+    font-size:14.5px;line-height:1.6;color:var(--label);background:#fff;
+  }
+  .notice-body:focus{outline:2px solid var(--blue);border-color:var(--blue);}
+  .notice-body p{margin:0 0 8px 0;}
+  .notice-body img{max-width:100%;border-radius:8px;display:block;margin:8px 0;}
+  .notice-body:empty:before{content:attr(data-placeholder);color:var(--gray3);}
+
+  .empty-note{color:var(--label2);font-size:13.5px;padding:18px 4px;text-align:center;}
+  .footer-actions{position:sticky;bottom:0;background:var(--bg);padding:14px 0 0 0;margin-top:10px;}
+  .status-msg{font-size:12.5px;color:var(--green);text-align:center;margin-top:8px;min-height:16px;}
+  .status-msg.err{color:var(--red);}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>お知らせ編集ツール</h1>
+  <div class="subtitle">
+    クレカ乗車運賃ナビの「お知らせ」ボックスに表示する内容（notices.json）を、JSONを直接書かずに作成・編集できるツールです。<br>
+    完成したら「notices.jsonをダウンロード」し、index.html・fare.json・sw.jsと同じフォルダに置いてGitHub Pagesに公開してください。
+  </div>
+
+  <div class="section-header">既存のnotices.jsonを読み込んで編集する（任意）</div>
+  <div class="drop" id="drop-zone">
+    <div class="d-title">ここにnotices.jsonをドロップ、またはクリックして選択</div>
+    <div class="d-sub">新規に作る場合はこの手順は不要です。下から「お知らせを追加」してください。</div>
+    <input type="file" id="file-input" accept=".json">
+  </div>
+
+  <div class="section-header">全体設定</div>
+  <div class="card">
+    <div class="field">
+      <label>最新バージョン（latestVersion）</label>
+      <div style="display:flex;gap:8px;">
+        <input type="text" id="g-version" placeholder="例: 2026-07-20" style="flex:1;">
+        <button type="button" class="small-btn" onclick="setTodayVersion()">今日の日付</button>
+      </div>
+      <div class="hint">index.html内の<code>APP_VERSION</code>定数と異なる値をここに入れると、アプリのお知らせ欄の先頭に「最新版があります」が自動で表示されます。index.htmlを更新していないのに変更すると誤って更新案内が出てしまうので、index.htmlを新しく公開した時だけ更新してください。</div>
+    </div>
+    <div class="field">
+      <label>更新案内の表示文言（updateSummary・省略可）</label>
+      <input type="text" id="g-updatesummary" placeholder="例: タップして更新">
+    </div>
+  </div>
+
+  <div class="section-header">お知らせ一覧</div>
+  <div id="notice-list"></div>
+  <div class="empty-note" id="empty-note" style="display:none;">お知らせがまだありません。下のボタンから追加してください。</div>
+  <button type="button" class="ghost-btn" style="margin-top:12px;width:100%;padding:12px;" onclick="addNotice()">＋ 新しいお知らせを追加</button>
+
+  <div class="footer-actions">
+    <button type="button" class="primary-btn" onclick="downloadNotices()">notices.json をダウンロード</button>
+    <div class="status-msg" id="status-msg"></div>
+  </div>
+</div>
+
+<script>
+let noticeSeq = 0;
+let lastFocusedBody = null;   // 最後にフォーカスされていた本文編集エリア
+let lastSavedRange = null;    // ファイル選択ダイアログ等で失われるカーソル位置の退避先
+
+document.execCommand("defaultParagraphSeparator", false, "p");
+
+function uid(){ return "n" + Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+
+function todayStr(){
+  const d = new Date();
+  const p = n => String(n).padStart(2,"0");
+  return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`;
+}
+function setTodayVersion(){
+  document.getElementById("g-version").value = todayStr();
+}
+
+/* ---------- 一覧の追加・削除・並び替え ---------- */
+function addNotice(data){
+  data = data || {};
+  const id = data.id || uid();
+  noticeSeq++;
+  const wrap = document.createElement("div");
+  wrap.className = "notice-card";
+  wrap.dataset.id = id;
+  wrap.innerHTML = `
+    <div class="notice-card-head">
+      <span class="idx-badge">${noticeSeq}</span>
+      <span class="ctitle">お知らせ</span>
+      <button type="button" class="small-btn" onclick="moveNotice(this,-1)">↑</button>
+      <button type="button" class="small-btn" onclick="moveNotice(this,1)">↓</button>
+      <button type="button" class="small-btn danger" onclick="removeNotice(this)">削除</button>
+    </div>
+    <div class="field">
+      <label>日付</label>
+      <input type="date" class="f-date" value="${escAttr(data.date||todayStr())}">
+    </div>
+    <div class="field">
+      <label>タイトル<span class="req">※必須</span></label>
+      <input type="text" class="f-title" placeholder="お知らせのタイトル" value="${escAttr(data.title||"")}" oninput="syncCardTitle(this)">
+    </div>
+    <div class="field">
+      <label>ボックスに表示する短い文言（省略時はタイトルを表示）</label>
+      <input type="text" class="f-summary" placeholder="例: タップして詳細を見る" value="${escAttr(data.summary||"")}">
+    </div>
+    <div class="field">
+      <label>サムネイル画像（省略可・一覧と詳細画面の先頭に表示）</label>
+      <div class="thumb-row">
+        <input type="text" class="f-thumb" placeholder="画像URLを入力、またはアップロード" value="${escAttr(data.thumbnail||"")}" oninput="updateThumbPreview(this)">
+        <label class="upload-btn">アップロード<input type="file" accept="image/*" style="display:none;" onchange="uploadThumb(this)"></label>
+      </div>
+      <img class="thumb-preview">
+    </div>
+    <div class="field">
+      <label>本文（画像はツールバーから文中の好きな位置に挿入できます）</label>
+      <div class="editor-toolbar">
+        <button type="button" onmousedown="event.preventDefault()" onclick="execBold(this)"><b>B</b> 太字</button>
+        <button type="button" onmousedown="event.preventDefault()" onclick="insertImageUrl(this)">🔗 画像URLを挿入</button>
+        <label class="upload-btn" onmousedown="saveRangeFor(this)">📁 画像をアップロードして挿入<input type="file" accept="image/*" style="display:none;" onchange="insertImageUpload(this)"></label>
+      </div>
+      <div class="f-body notice-body" contenteditable="true" data-placeholder="ここに本文を入力してください"></div>
+    </div>
+  `;
+  document.getElementById("notice-list").appendChild(wrap);
+  const bodyEl = wrap.querySelector(".f-body");
+  bodyEl.innerHTML = data.body || "";
+  bodyEl.addEventListener("focus", () => { lastFocusedBody = bodyEl; });
+  bodyEl.addEventListener("mouseup", saveCurrentRange);
+  bodyEl.addEventListener("keyup", saveCurrentRange);
+  bodyEl.addEventListener("keydown", handleBodyKeydown);
+  const thumbInput = wrap.querySelector(".f-thumb");
+  updateThumbPreview(thumbInput);
+  syncCardTitle(wrap.querySelector(".f-title"));
+  refreshEmptyNote();
+  refreshIndexBadges();
+  return wrap;
+}
+
+function syncCardTitle(input){
+  const card = input.closest(".notice-card");
+  card.querySelector(".ctitle").textContent = input.value || "（タイトル未入力）";
+}
+
+function removeNotice(btn){
+  if(!confirm("このお知らせを削除しますか？")) return;
+  btn.closest(".notice-card").remove();
+  refreshEmptyNote();
+  refreshIndexBadges();
+}
+
+function moveNotice(btn, dir){
+  const card = btn.closest(".notice-card");
+  const list = document.getElementById("notice-list");
+  if(dir < 0 && card.previousElementSibling){
+    list.insertBefore(card, card.previousElementSibling);
+  } else if(dir > 0 && card.nextElementSibling){
+    list.insertBefore(card.nextElementSibling, card);
+  }
+  refreshIndexBadges();
+}
+
+function refreshIndexBadges(){
+  document.querySelectorAll("#notice-list .notice-card").forEach((c,i)=>{
+    c.querySelector(".idx-badge").textContent = i+1;
+  });
+}
+function refreshEmptyNote(){
+  const has = document.querySelectorAll("#notice-list .notice-card").length > 0;
+  document.getElementById("empty-note").style.display = has ? "none" : "block";
+}
+
+/* ---------- サムネイル ---------- */
+function updateThumbPreview(input){
+  const card = input.closest(".notice-card");
+  const img = card.querySelector(".thumb-preview");
+  if(input.value){ img.src = input.value; img.style.display = "block"; }
+  else { img.style.display = "none"; img.removeAttribute("src"); }
+}
+function uploadThumb(fileInput){
+  const file = fileInput.files[0];
+  if(!file) return;
+  const card = fileInput.closest(".notice-card");
+  const textInput = card.querySelector(".f-thumb");
+  const reader = new FileReader();
+  reader.onload = () => {
+    textInput.value = reader.result;
+    updateThumbPreview(textInput);
+  };
+  reader.readAsDataURL(file);
+  fileInput.value = "";
+}
+
+/* ---------- 本文エディタ（カーソル位置の保存・復元） ---------- */
+function saveCurrentRange(){
+  const sel = window.getSelection();
+  if(sel && sel.rangeCount > 0){
+    const range = sel.getRangeAt(0);
+    const container = range.commonAncestorContainer;
+    const bodyEl = (container.nodeType===1?container:container.parentElement)?.closest(".f-body");
+    if(bodyEl){ lastFocusedBody = bodyEl; lastSavedRange = range.cloneRange(); }
+  }
+}
+function saveRangeFor(labelEl){
+  // アップロードボタン押下（＝ファイル選択ダイアログが開く直前）にカーソル位置を保存
+  const card = labelEl.closest(".notice-card");
+  lastFocusedBody = card.querySelector(".f-body");
+  saveCurrentRange();
+}
+function restoreRangeIn(bodyEl){
+  bodyEl.focus();
+  if(lastSavedRange && bodyEl.contains(lastSavedRange.commonAncestorContainer)){
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(lastSavedRange);
+  } else {
+    // 保存された位置が無い/対象外の場合は末尾にカーソルを置く
+    const range = document.createRange();
+    range.selectNodeContents(bodyEl);
+    range.collapse(false);
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+  }
+}
+function handleBodyKeydown(e){
+  /* Enter単独: 段落区切りとして常に同じ間隔（<br><br>）を挿入する。
+     ブラウザ標準のEnter処理に任せると、ブラウザによって<p>/<div>/<br>が
+     まちまちに生成され、段落間隔がバラバラになる問題があったための対応。
+     Shift+Enterは通常のブラウザ標準動作（単一の改行）のまま。 */
+  if(e.key === "Enter" && !e.shiftKey){
+    e.preventDefault();
+    document.execCommand("insertHTML", false, "<br>");
+  }
+}
+function execBold(btn){
+  const card = btn.closest(".notice-card");
+  const bodyEl = card.querySelector(".f-body");
+  bodyEl.focus();
+  document.execCommand("bold");
+}
+function insertImageUrl(btn){
+  const card = btn.closest(".notice-card");
+  const bodyEl = card.querySelector(".f-body");
+  const url = prompt("挿入する画像のURLを入力してください");
+  if(!url) return;
+  restoreRangeIn(bodyEl);
+  document.execCommand("insertImage", false, url);
+}
+function insertImageUpload(fileInput){
+  const file = fileInput.files[0];
+  if(!file) return;
+  const card = fileInput.closest(".notice-card");
+  const bodyEl = card.querySelector(".f-body");
+  const reader = new FileReader();
+  reader.onload = () => {
+    restoreRangeIn(bodyEl);
+    document.execCommand("insertImage", false, reader.result);
+  };
+  reader.readAsDataURL(file);
+  fileInput.value = "";
+}
+
+/* ---------- HTMLエスケープ ---------- */
+function escAttr(s){
+  return String(s).replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+}
+
+/* ---------- 既存ファイルの読み込み ---------- */
+const dropZone = document.getElementById("drop-zone");
+const fileInputEl = document.getElementById("file-input");
+dropZone.addEventListener("click", () => fileInputEl.click());
+dropZone.addEventListener("dragover", e => { e.preventDefault(); dropZone.classList.add("over"); });
+dropZone.addEventListener("dragleave", () => dropZone.classList.remove("over"));
+dropZone.addEventListener("drop", e => {
+  e.preventDefault(); dropZone.classList.remove("over");
+  const f = e.dataTransfer.files[0];
+  if(f) loadFile(f);
+});
+fileInputEl.addEventListener("change", e => {
+  const f = e.target.files[0];
+  if(f) loadFile(f);
+});
+function loadFile(file){
+  const reader = new FileReader();
+  reader.onload = () => {
+    try{
+      const data = JSON.parse(reader.result);
+      loadData(data);
+      showStatus("notices.jsonを読み込みました。", false);
+    }catch(err){
+      showStatus("JSONの読み込みに失敗しました: " + err.message, true);
+    }
+  };
+  reader.readAsText(file, "utf-8");
+}
+function loadData(data){
+  document.getElementById("g-version").value = data.latestVersion || "";
+  document.getElementById("g-updatesummary").value = data.updateSummary || "";
+  document.getElementById("notice-list").innerHTML = "";
+  noticeSeq = 0;
+  (Array.isArray(data.notices) ? data.notices : []).forEach(n => addNotice(n));
+  refreshEmptyNote();
+}
+
+/* ---------- 出力 ---------- */
+function collectData(){
+  const notices = [];
+  document.querySelectorAll("#notice-list .notice-card").forEach(card => {
+    const title = card.querySelector(".f-title").value.trim();
+    if(!title) return; // タイトル未入力のお知らせは出力しない
+    notices.push({
+      id: card.dataset.id,
+      date: card.querySelector(".f-date").value || "",
+      title,
+      summary: card.querySelector(".f-summary").value.trim(),
+      thumbnail: card.querySelector(".f-thumb").value.trim(),
+      body: card.querySelector(".f-body").innerHTML.trim()
+    });
+  });
+  const out = { notices };
+  const version = document.getElementById("g-version").value.trim();
+  const updateSummary = document.getElementById("g-updatesummary").value.trim();
+  if(version) out.latestVersion = version;
+  if(updateSummary) out.updateSummary = updateSummary;
+  // notices.jsonはlatestVersion/updateSummaryをnoticesより前に置く（index.html側は順不同で読めるが人が見て分かりやすいように）
+  return { latestVersion: out.latestVersion, updateSummary: out.updateSummary, notices: out.notices };
+}
+
+function downloadNotices(){
+  const totalCards = document.querySelectorAll("#notice-list .notice-card").length;
+  const data = collectData();
+  if(totalCards > 0 && data.notices.length < totalCards){
+    if(!confirm("タイトルが未入力のお知らせがあります。それらは出力されませんが、続けますか？")) return;
+  }
+  const cleaned = {};
+  if(data.latestVersion) cleaned.latestVersion = data.latestVersion;
+  if(data.updateSummary) cleaned.updateSummary = data.updateSummary;
+  cleaned.notices = data.notices;
+  const jsonStr = JSON.stringify(cleaned, null, 2);
+  download("notices.json", jsonStr, "application/json");
+  showStatus(`notices.json をダウンロードしました（お知らせ ${data.notices.length}件）。`, false);
+}
+
+function download(name, content, type){
+  const blob = new Blob([content], { type: type + ";charset=utf-8" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+function showStatus(msg, isErr){
+  const el = document.getElementById("status-msg");
+  el.textContent = msg;
+  el.classList.toggle("err", !!isErr);
+}
+
+/* 初期表示: 空の状態から開始 */
+refreshEmptyNote();
+</script>
+</body>
+</html>
